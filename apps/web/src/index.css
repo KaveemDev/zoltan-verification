@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+
+/* Zoltan Visa brand (matches zoltanvisa.com). Pink #FF3366 is for accents; buttons and links use
+   the darker 600 so white text and links on white keep WCAG AA contrast (≥ 4.5:1). */
+@theme {
+  --color-brand-50: #fff0f4;
+  --color-brand-100: #ffd9e5;
+  --color-brand-500: #ff3366;
+  --color-brand-600: #d6194a;
+  --color-brand-700: #b8123d;
+  --color-brand-800: #8a0030;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+}
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-brand-600;
+}

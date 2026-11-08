@@ -1,0 +1,63 @@
+name: Deploy frontend to Hostinger
+
+# Builds apps/web and uploads it to the sign.zoltanvisa.com folder over FTPS.
+# Repository settings → Secrets: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD (from hPanel → Files → FTP Accounts).
+# Repository settings → Variables: API_ORIGIN (https://api.zoltanvisa.com),
+#   S3_PUBLIC_ORIGIN (https://<account-id>.r2.cloudflarestorage.com), optional FTP_SERVER_DIR, FTP_PROTOCOL.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'packages/shared/**'
+      - 'deploy/hostinger.htaccess'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITE_API_URL: ${{ vars.API_ORIGIN }}
+      API_ORIGIN: ${{ vars.API_ORIGIN }}
+      S3_PUBLIC_ORIGIN: ${{ vars.S3_PUBLIC_ORIGIN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Check settings
+        run: |
+          if [ -z "$API_ORIGIN" ] || [ -z "$S3_PUBLIC_ORIGIN" ]; then
+            echo "Set the repository variables API_ORIGIN and S3_PUBLIC_ORIGIN first."; exit 1
+          fi
+
+      - run: npm ci -w @app/web -w @app/shared --include-workspace-root
+      - run: npm test -w apps/web
+      - run: npm run build -w apps/web
+
+      - name: Add .htaccess
+        run: envsubst '${API_ORIGIN} ${S3_PUBLIC_ORIGIN}' < deploy/hostinger.htaccess > apps/web/dist/.htaccess
+
+      - name: Upload to Hostinger
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          port: 21
+          local-dir: apps/web/dist/
+          server-dir: ${{ vars.FTP_SERVER_DIR || './' }}

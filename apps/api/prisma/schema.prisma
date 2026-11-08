@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum AgreementStatus {
+  DRAFT
+  SENT
+  OPENED
+  VERIFIED
+  SIGNED
+  EXPIRED
+  CANCELLED
+}
+
+enum PackageType {
+  VISA
+  TRAVEL
+  BOTH
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(STAFF)
+  /// Deactivated users can't sign in, and their existing sessions stop working.
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  agreements Agreement[]
+  accessLogs AccessLog[]
+}
+
+model AgreementTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  bodyHtml  String
+  version   Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  agreements Agreement[]
+
+  @@unique([name, version])
+}
+
+model Agreement {
+  id                 String          @id @default(cuid())
+  customerName       String
+  customerPhone      String
+  customerEmail      String?
+  packageType        PackageType
+  destination        String
+  price              Decimal         @db.Decimal(12, 2)
+  currency           String          @db.Char(3)
+  notes              String?
+  templateId         String
+  templateVersion    Int
+  consentTextVersion String?
+  status             AgreementStatus @default(DRAFT)
+  signingTokenHash   String?         @unique
+  tokenExpiresAt     DateTime?
+  originalPdfKey     String?
+  originalPdfSha256  String?
+  signedPdfKey       String?
+  signedPdfSha256    String?
+  videoKey           String?
+  videoSha256        String?
+  videoMimeType      String?
+  videoDurationSec   Float?
+  createdById        String
+  createdAt          DateTime        @default(now())
+  signedAt           DateTime?
+  /// Set by the daily retention job once the retention period has passed.
+  retentionDueAt     DateTime?
+  /// Personal data and files erased by an admin; the row stays as a tombstone.
+  purgedAt           DateTime?
+  purgedById         String?
+
+  template      AgreementTemplate @relation(fields: [templateId], references: [id])
+  createdBy     User              @relation(fields: [createdById], references: [id])
+  otpChallenges OtpChallenge[]
+  auditEvents   AuditEvent[]
+  accessLogs    AccessLog[]
+
+  @@index([status, createdAt])
+  @@index([customerPhone])
+  @@index([retentionDueAt])
+}
+
+model OtpChallenge {
+  id          String    @id @default(cuid())
+  agreementId String
+  codeHash    String
+  expiresAt   DateTime
+  attempts    Int       @default(0)
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  agreement Agreement @relation(fields: [agreementId], references: [id])
+
+  @@index([agreementId, createdAt])
+}
+
+/// Append-only. A trigger in migration 0001_init rejects UPDATE, DELETE and TRUNCATE.
+/// hash = sha256(prevHash + canonical JSON of the event); chained per agreement.
+model AuditEvent {
+  id          String   @id @default(cuid())
+  agreementId String
+  seq         Int
+  type        String
+  ip          String?
+  userAgent   String?
+  deviceInfo  Json?
+  metadata    Json?
+  prevHash    String
+  hash        String   @unique
+  createdAt   DateTime @default(now())
+
+  agreement Agreement @relation(fields: [agreementId], references: [id])
+
+  @@unique([agreementId, seq])
+}
+
+model AccessLog {
+  id          String   @id @default(cuid())
+  userId      String
+  agreementId String?
+  action      String
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  user      User       @relation(fields: [userId], references: [id])
+  agreement Agreement? @relation(fields: [agreementId], references: [id])
+
+  @@index([createdAt])
+}
