@@ -5,9 +5,10 @@ import {
   type CreateAgreement,
   type CreateAgreementInput,
 } from '../shared/index';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router';
+import { DEMO, demoToken } from '../demo';
 import { useCreateAgreement, useTemplates } from '../lib/agreements';
 
 const PACKAGE_LABEL: Record<PackageType, string> = {
@@ -47,6 +48,7 @@ export function NewAgreementPage() {
   const navigate = useNavigate();
   const templates = useTemplates();
   const create = useCreateAgreement();
+  const [demoLink, setDemoLink] = useState<string>();
   const {
     register,
     handleSubmit,
@@ -69,7 +71,16 @@ export function NewAgreementPage() {
       <h1 className="mt-2 mb-4 text-xl font-semibold">New agreement</h1>
       <form
         noValidate
-        onSubmit={handleSubmit((v) => create.mutate(v, { onSuccess: () => navigate('/') }))}
+        onSubmit={handleSubmit((v) =>
+          create.mutate(v, {
+            onSuccess: (a) =>
+              DEMO
+                ? setDemoLink(
+                    `${location.origin}/sign/${demoToken({ ...v, ...a, signedAt: null })}`,
+                  )
+                : navigate('/'),
+          }),
+        )}
         className="space-y-4 rounded-lg border border-slate-200 bg-white p-4"
       >
         <Field id="customerName" label="Customer full name" error={errors.customerName?.message}>
@@ -159,6 +170,19 @@ export function NewAgreementPage() {
           <textarea {...register('notes')} {...a11y('notes')} rows={3} className={input} />
         </Field>
 
+        {demoLink && (
+          <div role="status" className="rounded-lg border border-green-300 bg-green-50 p-3 text-sm">
+            <p className="font-medium">Demo: no email is sent. Open this test signing link:</p>
+            <a
+              href={demoLink}
+              target="_blank"
+              rel="noreferrer"
+              className="break-all text-brand-600 underline"
+            >
+              {demoLink}
+            </a>
+          </div>
+        )}
         {create.isError && (
           <p role="alert" className="text-sm text-red-700">
             {create.error.message}

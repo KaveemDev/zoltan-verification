@@ -1,3 +1,4 @@
+import { DEMO } from '../demo';
 /** Recorder formats in order of preference. iOS Safari only supports MP4. */
 const MIME_CANDIDATES = ['video/webm;codecs=vp9,opus', 'video/webm', 'video/mp4'];
 
@@ -35,6 +36,7 @@ export function putWithProgress(
   headers: Record<string, string>,
   onProgress: (fraction: number) => void,
 ): Promise<void> {
+  if (DEMO) return Promise.resolve(onProgress(1)); // demo: nowhere to upload
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
