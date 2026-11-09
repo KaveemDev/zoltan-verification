@@ -1,17 +1,16 @@
 name: Deploy frontend to Hostinger
 
-# Builds apps/web and uploads it to the sign.zoltanvisa.com folder over FTPS.
+# Optional: builds frontend/ and uploads it to the sign.zoltanvisa.com folder over FTPS on every push.
+# (Without it: run `npm run build` in frontend/ and upload dist/ in hPanel → File Manager.)
 # Repository settings → Secrets: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD (from hPanel → Files → FTP Accounts).
 # Repository settings → Variables: API_ORIGIN (https://api.zoltanvisa.com),
-#   S3_PUBLIC_ORIGIN (https://<account-id>.r2.cloudflarestorage.com), optional FTP_SERVER_DIR, FTP_PROTOCOL.
+#   STORAGE_ORIGIN (https://<account-id>.r2.cloudflarestorage.com), optional FTP_SERVER_DIR, FTP_PROTOCOL,
+#   DEMO=true for a no-backend client preview (API_ORIGIN/STORAGE_ORIGIN then not needed).
 on:
   push:
     branches: [main]
     paths:
-      - 'apps/web/**'
-      - 'packages/shared/**'
-      - 'deploy/hostinger.htaccess'
-      - 'package-lock.json'
+      - 'frontend/**'
       - '.github/workflows/deploy-frontend.yml'
   workflow_dispatch:
 
@@ -26,10 +25,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      VITE_API_URL: ${{ vars.API_ORIGIN }}
-      API_ORIGIN: ${{ vars.API_ORIGIN }}
-      S3_PUBLIC_ORIGIN: ${{ vars.S3_PUBLIC_ORIGIN }}
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -37,19 +35,16 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Check settings
+      - name: Write .env.production from repository variables
         run: |
-          if [ -z "$API_ORIGIN" ] || [ -z "$S3_PUBLIC_ORIGIN" ]; then
-            echo "Set the repository variables API_ORIGIN and S3_PUBLIC_ORIGIN first."; exit 1
-          fi
+          printf 'VITE_API_URL=%s\nVITE_STORAGE_ORIGIN=%s\nVITE_DEMO=%s\n' "${{ vars.API_ORIGIN }}" "${{ vars.STORAGE_ORIGIN }}" "${{ vars.DEMO }}" > .env.production
 
-      - run: npm ci -w @app/web -w @app/shared --include-workspace-root
-      - run: npm test -w apps/web
-      - run: npm run build -w apps/web
-
-      - name: Add .htaccess
-        run: envsubst '${API_ORIGIN} ${S3_PUBLIC_ORIGIN}' < deploy/hostinger.htaccess > apps/web/dist/.htaccess
+      - run: npm ci
+      - run: npm test
+      # Also writes dist/.htaccess; fails if the two variables are missing.
+      - run: npm run build
 
       - name: Upload to Hostinger
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
@@ -59,5 +54,5 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
           port: 21
-          local-dir: apps/web/dist/
+          local-dir: frontend/dist/
           server-dir: ${{ vars.FTP_SERVER_DIR || './' }}
