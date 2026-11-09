@@ -1,6 +1,9 @@
 import { z } from 'zod';
+import { LEGAL_TEXT } from './legal.js';
 
-// Keep these in sync with the Prisma enums in apps/api/prisma/schema.prisma.
+// This folder exists twice, in server/src/shared and frontend/src/shared, so each app deploys on its own.
+// Edit one copy and copy it to the other: a server test fails if they differ.
+// Keep the enums below in sync with server/prisma/schema.prisma.
 export const Role = z.enum(['ADMIN', 'STAFF']);
 export type Role = z.infer<typeof Role>;
 
@@ -206,6 +209,10 @@ export const completeSigningSchema = z.object({
     .max(400_000)
     .regex(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/, 'Draw your signature'),
   agreed: z.literal(true, { error: 'Please confirm you agree' }),
+  /** One `true` per Client Declaration statement: every one must be ticked. */
+  declarations: z
+    .array(z.literal(true, { error: 'Please tick every declaration' }))
+    .length(LEGAL_TEXT.declarations.length, 'Please tick every declaration'),
   legalTextVersion: z.string().max(40),
 });
 export type CompleteSigning = z.infer<typeof completeSigningSchema>;

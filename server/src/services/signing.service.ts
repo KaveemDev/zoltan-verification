@@ -391,6 +391,7 @@ export async function completeSigning(
     auditChainHead: lastEvent!.hash,
     legalTextVersion: LEGAL_TEXT_VERSION,
     agreementConsentText: LEGAL_TEXT.agreementConsent,
+    declarations: [...LEGAL_TEXT.declarations],
   });
   const signedPdfSha256 = sha256Hex(signed);
   const signedPdfKey = keys.signedPdf(a.id, randomUUID());
@@ -413,6 +414,8 @@ export async function completeSigning(
         originalPdfSha256: a.originalPdfSha256,
         videoSha256: a.videoSha256,
         legalTextVersion: LEGAL_TEXT_VERSION,
+        // The exact statements the customer ticked (the schema requires every one).
+        declarations: LEGAL_TEXT.declarations,
       },
       tx,
     );

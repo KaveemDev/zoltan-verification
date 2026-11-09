@@ -5,7 +5,7 @@
  * The version is stored with each agreement, so you can always prove which wording a customer saw.
  * Placeholders in {curly braces} are filled in automatically.
  */
-export const LEGAL_TEXT_VERSION = '2026-11-07';
+export const LEGAL_TEXT_VERSION = '2026-11-09';
 
 export const LEGAL_TEXT = {
   /** Shown next to the checkbox at the end of the agreement. */
@@ -20,6 +20,23 @@ export const LEGAL_TEXT = {
     'or as required by law, and you can ask us to delete it at any time.',
 
   recordingConsent: 'I agree to record a short confirmation video.',
+
+  /**
+   * Client Declaration from Zoltan's paper agreement, word for word. The customer must tick every
+   * one before signing; the ticked list goes into the audit trail and onto the signed PDF.
+   */
+  declarations: [
+    'I have carefully read and understood every page of this Agreement.',
+    'I understand that Zoltan Global does not guarantee visa approval.',
+    'I understand that the Embassy or Immigration Authority has the sole authority to approve or refuse my application.',
+    'I confirm that every document submitted by me is genuine, authentic, and legally obtained.',
+    'I understand that submitting false or forged documents may result in refusal, legal action, immigration bans, or prosecution, and I shall be solely responsible.',
+    'I understand that professional consultancy fees paid to Zoltan Global are non-refundable once work has commenced.',
+    'I authorize Zoltan Global to prepare, process, submit, and communicate with Embassies, Consulates, Visa Application Centres, Airlines, Hotels, Insurance Companies, and other relevant authorities on my behalf where permitted.',
+    'I agree to provide any additional documents requested by the Embassy or the Company within the prescribed time.',
+    'I voluntarily sign this Agreement without pressure, coercion, or undue influence.',
+    'I accept all the terms and conditions mentioned in this Agreement.',
+  ],
 
   /** Shown above the signature box. */
   signatureNotice:

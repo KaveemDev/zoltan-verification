@@ -58,6 +58,8 @@ vi.mock('../services/pdf.service.js', async (orig) => ({
 const { createApp } = await import('../app.js');
 const { verifyChain } = await import('../services/audit.service.js');
 
+// All 10 Client Declaration boxes ticked.
+const TICKED = Array(10).fill(true);
 const PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
@@ -314,6 +316,7 @@ describe('signing session and completion', () => {
       typedName: 'Asha Rao',
       signaturePng: PNG,
       agreed: true,
+      declarations: TICKED,
       legalTextVersion: LEGAL_TEXT_VERSION,
     };
     expect(
@@ -333,6 +336,17 @@ describe('signing session and completion', () => {
       .post(`${base()}/complete`)
       .set(auth)
       .send({ ...sign, agreed: false })
+      .expect(400);
+    const oneMissing = await request(app)
+      .post(`${base()}/complete`)
+      .set(auth)
+      .send({ ...sign, declarations: TICKED.slice(1) })
+      .expect(400);
+    expect(oneMissing.body.fields.declarations).toEqual(['Please tick every declaration']);
+    await request(app)
+      .post(`${base()}/complete`)
+      .set(auth)
+      .send({ ...sign, declarations: [...TICKED.slice(1), false] })
       .expect(400);
   });
 
@@ -359,6 +373,7 @@ describe('signing session and completion', () => {
         typedName: 'Asha Rao',
         signaturePng: 'data:image/png;base64,AAAA',
         agreed: true,
+        declarations: TICKED,
         legalTextVersion: LEGAL_TEXT_VERSION,
       })
       .expect(400);
@@ -371,6 +386,7 @@ describe('signing session and completion', () => {
         typedName: 'Asha Rao',
         signaturePng: PNG,
         agreed: true,
+        declarations: TICKED,
         legalTextVersion: LEGAL_TEXT_VERSION,
       })
       .expect(200);
@@ -393,6 +409,11 @@ describe('signing session and completion', () => {
       'SIGNED',
     ]);
     expect(events().at(-1)!.userAgent).toBe('TestPhone/1.0');
+    const declarations = (events().at(-1)!.metadata as { declarations: string[] }).declarations;
+    expect(declarations).toHaveLength(10);
+    expect(declarations[1]).toBe(
+      'I understand that Zoltan Global does not guarantee visa approval.',
+    );
     expect(verifyChain(events() as never)).toEqual({ ok: true });
 
     expect((await request(app).get(base()).expect(409)).body.error).toBe('ALREADY_SIGNED');
@@ -420,6 +441,7 @@ describe('signing session and completion', () => {
         typedName: 'Asha Rao',
         signaturePng: PNG,
         agreed: true,
+        declarations: TICKED,
         legalTextVersion: LEGAL_TEXT_VERSION,
       })
       .expect(500);
@@ -555,6 +577,7 @@ describe('selfie video', () => {
       typedName: 'Asha Rao',
       signaturePng: PNG,
       agreed: true,
+      declarations: TICKED,
       legalTextVersion: LEGAL_TEXT_VERSION,
     };
     const missing = await request(app).post(`${base()}/complete`).set(auth).send(sign).expect(400);

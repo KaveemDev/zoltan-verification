@@ -18,6 +18,8 @@ export interface SignatureDetails {
   auditChainHead: string;
   legalTextVersion: string;
   agreementConsentText: string;
+  /** Client Declaration statements, all ticked by the customer before signing. */
+  declarations: string[];
 }
 
 export const formatIst = (d: Date) =>
@@ -58,6 +60,10 @@ function signaturePageHtml(d: SignatureDetails, signaturePng: Uint8Array) {
     <h1>Electronic signature and verification</h1>
     <p>${escapeHtml(d.businessName)} · Agreement ${escapeHtml(d.agreementId)}</p>
     <p style="margin-top:14pt"><strong>Signer's confirmation:</strong> “${escapeHtml(d.agreementConsentText)}”</p>
+    <p style="margin:10pt 0 4pt"><strong>Client Declaration</strong>, each statement ticked by the signer:</p>
+    <ul style="list-style:none;padding:0;margin:0;font-size:9pt">
+      ${d.declarations.map((t) => `<li style="margin:2pt 0">☑ ${escapeHtml(t)}</li>`).join('')}
+    </ul>
     <div style="margin:14pt 0;padding:8pt;border:1px solid #999;border-radius:4pt;display:inline-block">
       <img src="${img}" alt="Signature" style="height:90pt;max-width:300pt;display:block" />
       <div style="border-top:1px solid #333;margin-top:4pt;padding-top:2pt;font-size:10pt">${escapeHtml(d.typedName)}</div>

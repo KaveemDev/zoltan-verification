@@ -101,7 +101,9 @@ export const copy = {
     submitting: 'Signing…',
     needSignature: 'Please draw your signature.',
     needName: 'Please type your full name.',
-    needAgree: 'Please tick the box to confirm.',
+    needDeclarations: 'Please tick every statement in the Client Declaration.',
+    declarationsTitle: 'Client Declaration',
+    declarationsHint: 'Please tick each statement before signing.',
   },
   done: {
     title: 'All done, thank you!',

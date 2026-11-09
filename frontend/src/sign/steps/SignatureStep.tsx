@@ -7,12 +7,13 @@ import { Card, Checkbox, ErrorText, PrimaryButton } from '../ui';
 export function SignatureStep({
   onSubmit,
 }: {
-  onSubmit: (v: { typedName: string; signaturePng: string }) => Promise<void>;
+  onSubmit: (v: { typedName: string; signaturePng: string; declarations: true[] }) => Promise<void>;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const padRef = useRef<SignaturePad | null>(null);
   const [typedName, setTypedName] = useState('');
-  const [agreed, setAgreed] = useState(false);
+  // One box per Client Declaration statement; like the paper form, each must be ticked.
+  const [ticked, setTicked] = useState(() => LEGAL_TEXT.declarations.map(() => false));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -43,11 +44,15 @@ export function SignatureStep({
     const pad = padRef.current!;
     if (typedName.trim().length < 2) return setError(copy.sign.needName);
     if (pad.isEmpty()) return setError(copy.sign.needSignature);
-    if (!agreed) return setError(copy.sign.needAgree);
+    if (!ticked.every(Boolean)) return setError(copy.sign.needDeclarations);
     setBusy(true);
     setError('');
     try {
-      await onSubmit({ typedName: typedName.trim(), signaturePng: pad.toDataURL('image/png') });
+      await onSubmit({
+        typedName: typedName.trim(),
+        signaturePng: pad.toDataURL('image/png'),
+        declarations: ticked.map(() => true as const),
+      });
     } catch (err) {
       setError((err as Error).message || copy.common.genericError);
       setBusy(false);
@@ -58,6 +63,20 @@ export function SignatureStep({
     <Card>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <h1 className="text-2xl font-semibold">{copy.sign.title}</h1>
+        <fieldset className="space-y-2">
+          <legend className="mb-1 font-semibold">{copy.sign.declarationsTitle}</legend>
+          <p className="text-sm text-slate-600">{copy.sign.declarationsHint}</p>
+          {LEGAL_TEXT.declarations.map((text, i) => (
+            <Checkbox
+              key={text}
+              id={`declaration-${i}`}
+              checked={ticked[i]!}
+              onChange={(v) => setTicked((t) => t.map((x, j) => (j === i ? v : x)))}
+            >
+              {text}
+            </Checkbox>
+          ))}
+        </fieldset>
         <p className="text-slate-700">{LEGAL_TEXT.signatureNotice}</p>
         <div>
           <label htmlFor="typedName" className="block font-medium">
@@ -91,9 +110,6 @@ export function SignatureStep({
             className="mt-1 h-48 w-full touch-none rounded-xl border-2 border-dashed border-slate-400 bg-white"
           />
         </div>
-        <Checkbox id="agree-sign" checked={agreed} onChange={setAgreed}>
-          {LEGAL_TEXT.agreementConsent}
-        </Checkbox>
         <ErrorText>{error}</ErrorText>
         <PrimaryButton type="submit" disabled={busy}>
           {busy ? copy.sign.submitting : copy.sign.submit}
