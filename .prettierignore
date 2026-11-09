@@ -1,4 +1,0 @@
-node_modules
-dist
-apps/api/prisma/migrations
-package-lock.json

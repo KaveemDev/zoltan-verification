@@ -1,7 +1,10 @@
 node_modules
 dist
-.env
 coverage
 *.log
 .DS_Store
 .claude/
+# Settings files: keep only the examples in git
+.env
+.env.*
+!.env.example
