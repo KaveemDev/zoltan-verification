@@ -28,9 +28,9 @@ async function main() {
     'utf8',
   );
   await prisma.agreementTemplate.upsert({
-    where: { name_version: { name: 'Standard visa & travel agreement', version: 1 } },
+    where: { name_version: { name: 'Visa Assistance Agreement', version: 1 } },
     update: {},
-    create: { name: 'Standard visa & travel agreement', version: 1, bodyHtml },
+    create: { name: 'Visa Assistance Agreement', version: 1, bodyHtml },
   });
 
   console.log(`Seeded admin ${email} and default template.`);

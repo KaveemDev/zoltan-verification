@@ -42,6 +42,7 @@ export const TEMPLATE_PLACEHOLDERS = [
   'notes',
   'agreementId',
   'date',
+  'issuedBy',
 ];
 
 const istDateTime = (d: Date) =>
@@ -104,6 +105,9 @@ export async function createAgreement(input: CreateAgreement, userId: string, ct
     notes: input.notes || 'None',
     agreementId: id,
     date: istDate(now),
+    // The staff member creating it is the "Zoltan Travel-Visas Representative" on the agreement.
+    issuedBy:
+      (await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }))?.name ?? '',
   });
   const pdf = await renderPdf(html, `${env.BUSINESS_NAME} · Agreement ${id}`);
   const originalPdfSha256 = sha256Hex(pdf);

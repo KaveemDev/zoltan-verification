@@ -1,53 +1,186 @@
 <!--
-  DRAFT TEMPLATE: have your lawyer review before use.
-  Placeholders in {{double braces}} are filled in when an agreement is created.
-  Available: businessName, customerName, customerPhone, customerEmail, packageType,
-             destination, price, currency, notes, agreementId, date
+  Zoltan Global: Visa Assistance Agreement, from Zoltan's current paper agreement (wording unchanged).
+  Placeholders in {{double braces}} are filled in when an agreement is created:
+  businessName, customerName, customerPhone, customerEmail, packageType, destination, price,
+  currency, notes, agreementId, date, issuedBy.
+  The Client Declaration checkboxes are ticked by the customer on screen before signing
+  (wording in server/src/shared/legal.ts → declarations); the ticks, the signature and all
+  verification details are added as the last page when the agreement is signed.
 -->
-<h1>Service Agreement</h1>
-<p>
-  This agreement is between <strong>{{businessName}}</strong> ("the Consultant") and
-  <strong>{{customerName}}</strong> ("the Customer"), phone {{customerPhone}}, dated {{date}}.
+<h1 style="text-align: center">Travel Agreement</h1>
+
+<h2>Applicant details</h2>
+<table style="width: 100%; border-collapse: collapse; font-size: 10.5pt">
+  <tr>
+    <td style="padding: 4pt; border: 1px solid #ccc; width: 32%">Full name</td>
+    <td style="padding: 4pt; border: 1px solid #ccc">{{customerName}}</td>
+  </tr>
+  <tr>
+    <td style="padding: 4pt; border: 1px solid #ccc">Cell no.</td>
+    <td style="padding: 4pt; border: 1px solid #ccc">{{customerPhone}}</td>
+  </tr>
+  <tr>
+    <td style="padding: 4pt; border: 1px solid #ccc">Email id</td>
+    <td style="padding: 4pt; border: 1px solid #ccc">{{customerEmail}}</td>
+  </tr>
+  <tr>
+    <td style="padding: 4pt; border: 1px solid #ccc">Service</td>
+    <td style="padding: 4pt; border: 1px solid #ccc">{{packageType}} · {{destination}}</td>
+  </tr>
+  <tr>
+    <td style="padding: 4pt; border: 1px solid #ccc">Professional fee</td>
+    <td style="padding: 4pt; border: 1px solid #ccc">{{currency}} {{price}}</td>
+  </tr>
+  <tr>
+    <td style="padding: 4pt; border: 1px solid #ccc">Notes</td>
+    <td style="padding: 4pt; border: 1px solid #ccc">{{notes}}</td>
+  </tr>
+  <tr>
+    <td style="padding: 4pt; border: 1px solid #ccc">Agreement ID / date</td>
+    <td style="padding: 4pt; border: 1px solid #ccc">{{agreementId}} · {{date}}</td>
+  </tr>
+</table>
+
+<p style="margin-top: 14pt">
+  This Travel Agreement ("Agreement") is entered into by and between Zoltan Travel-Visas
+  (hereinafter referred to as the "Company") and the undersigned individual (hereinafter referred to
+  as the "Client"), collectively referred to as the "Parties."
 </p>
 
-<h2>1. Services</h2>
+<h2>1. Processing Timeline</h2>
 <p>
-  The Consultant will provide <strong>{{packageType}}</strong> services for travel to
-  <strong>{{destination}}</strong>, including document guidance, application preparation and
-  submission support.
+  1.1 The standard processing time for travel-related services shall be 35 days, with an additional
+  grace period of 10 days.
+</p>
+<p>
+  1.2 Should the process exceed the stipulated timeline, a penalty fee of INR 5000 per exceeded
+  month will be applicable.
 </p>
 
-<h2>2. Fees</h2>
+<h2>2. Document Submission &amp; Compliance</h2>
 <p>
-  The total fee is <strong>{{currency}} {{price}}</strong>. Government, embassy, biometric and
-  courier fees are charged separately at actual cost unless stated otherwise.
+  2.1 The Client shall submit all required documents, including but not limited to passports,
+  identification documents, and visa-related paperwork, immediately upon request by the Company.
+</p>
+<p>
+  2.2 The Client must submit a bank statement with a sufficient balance within three (3) months from
+  the initiation of the process. Failure to do so will result in the automatic dissolution of the
+  case, without any entitlement to a refund or further assistance.
+</p>
+<p>
+  2.3 The Client bears full responsibility for ensuring the accuracy, completeness, and authenticity
+  of all submitted documents.
 </p>
 
-<h2>3. No guarantee of outcome</h2>
+<h2>3. Bank Statement Requirement</h2>
 <p>
-  Visa decisions are made solely by the relevant authorities. The Consultant does not guarantee
-  approval, processing time or any particular outcome.
+  3.1 Embassies typically require 3 to 6 months of bank statements reflecting a well-maintained
+  closing balance.
+</p>
+<p>
+  3.2 The Company will upload documents as received but will not be responsible for arranging,
+  modifying, or assisting in furnishing bank statements under any circumstances.
 </p>
 
-<h2>4. Customer responsibilities</h2>
+<h2>4. Refund &amp; Termination Policy</h2>
 <p>
-  The Customer confirms that all information and documents provided are true, complete and genuine,
-  and will promptly share any changes.
+  4.1 Once the travel process is initiated, no refunds shall be granted under any circumstances.
+</p>
+<p>
+  4.2 The Client may choose to terminate the process at their discretion; however, no refunds,
+  reimbursements, or compensations shall be issued for any reason.
 </p>
 
-<h2>5. Refunds</h2>
+<h2>5. Hotel &amp; Flight Bookings</h2>
+<p>5.1 Hotel and flight bookings shall be provisional and subject to availability.</p>
 <p>
-  Service fees are non-refundable once the application has been prepared or submitted, except as
-  required by law.
+  5.2 The Client must provide a credit or debit card with international transaction capabilities for
+  bookings.
+</p>
+<p>5.3 Confirmed bookings are subject to additional charges, which will be borne by the Client.</p>
+
+<h2>6. Document Standards, Submission &amp; Collection</h2>
+<p>
+  6.1 The Client must provide scanned copies of all required documents, as embassies strictly accept
+  only digital submissions.
+</p>
+<p>
+  6.2 The Company shall not be held responsible for visa refusals due to poor-quality scans or
+  non-compliance with document submission standards.
+</p>
+<p>
+  6.3 Photographs must adhere to the official visa specifications; refusals due to improper or
+  unclear photographs will not be the responsibility of the Company.
+</p>
+<p>
+  6.4 Embassies reserve the right to request additional documentation before or after submission,
+  and the Client is obligated to provide such documents promptly.
+</p>
+<p>
+  6.5 The Client must collect all submitted documents at the time of submission or within one (1)
+  month of submission. The Company shall not be responsible for any documents beyond this period.
 </p>
 
-<h2>6. Personal data</h2>
+<h2>7. Submission, Processing &amp; Decision Authority</h2>
 <p>
-  The Consultant processes the Customer's personal data only to deliver these services and as
-  required by law, in line with the Digital Personal Data Protection Act, 2023.
+  7.1 Prior to submission, the Company will conduct a final cross-verification of the Client’s
+  application.
+</p>
+<p>7.2 Once an application has been submitted, no modifications or additions can be made.</p>
+<p>
+  7.3 The embassy retains sole discretion in the approval or rejection of visa applications. The
+  Company has no control over the outcome and shall not be held liable for any refusals, whether
+  justified or unjustified.
 </p>
 
-<h2>7. Additional notes</h2>
-<p>{{notes}}</p>
+<h2>8. Acknowledgment &amp; Acceptance</h2>
+<p>
+  By signing below, the Client acknowledges that they have read, understood, and agreed to the terms
+  and conditions outlined in this Agreement.
+</p>
 
-<p>Agreement ID: {{agreementId}}</p>
+<h2>Client Declaration</h2>
+<p>The Client ticks each statement below on screen before signing:</p>
+<ol>
+  <li>I have carefully read and understood every page of this Agreement.</li>
+  <li>I understand that Zoltan Global does not guarantee visa approval.</li>
+  <li>
+    I understand that the Embassy or Immigration Authority has the sole authority to approve or
+    refuse my application.
+  </li>
+  <li>
+    I confirm that every document submitted by me is genuine, authentic, and legally obtained.
+  </li>
+  <li>
+    I understand that submitting false or forged documents may result in refusal, legal action,
+    immigration bans, or prosecution, and I shall be solely responsible.
+  </li>
+  <li>
+    I understand that professional consultancy fees paid to Zoltan Global are non-refundable once
+    work has commenced.
+  </li>
+  <li>
+    I authorize Zoltan Global to prepare, process, submit, and communicate with Embassies,
+    Consulates, Visa Application Centres, Airlines, Hotels, Insurance Companies, and other relevant
+    authorities on my behalf where permitted.
+  </li>
+  <li>
+    I agree to provide any additional documents requested by the Embassy or the Company within the
+    prescribed time.
+  </li>
+  <li>I voluntarily sign this Agreement without pressure, coercion, or undue influence.</li>
+  <li>I accept all the terms and conditions mentioned in this Agreement.</li>
+</ol>
+
+<table style="width: 100%; margin-top: 16pt; font-size: 10.5pt">
+  <tr>
+    <td style="padding: 4pt 0; width: 50%">Client’s Name: <strong>{{customerName}}</strong></td>
+    <td style="padding: 4pt 0">Client’s Signature: signed electronically (last page)</td>
+  </tr>
+  <tr>
+    <td style="padding: 4pt 0">
+      Zoltan Travel-Visas Representative: <strong>{{issuedBy}}</strong>
+    </td>
+    <td style="padding: 4pt 0">Date: {{date}}</td>
+  </tr>
+</table>

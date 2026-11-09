@@ -16,10 +16,15 @@ vi.mock('../db.js', () => {
   };
   return {
     prisma: {
+      user: { findUnique: vi.fn(async () => ({ name: 'Priya Staff' })) },
       agreementTemplate: {
         findFirst: vi.fn(async ({ where }) =>
           where.id === 't1'
-            ? { id: 't1', version: 3, bodyHtml: '<p>{{customerName}} {{agreementId}}</p>' }
+            ? {
+                id: 't1',
+                version: 3,
+                bodyHtml: '<p>{{customerName}} {{agreementId}} by {{issuedBy}}</p>',
+              }
             : null,
         ),
       },
@@ -74,6 +79,7 @@ describe('createAgreement', () => {
     expect(uploads[0]!.key).toBe(`agreements/${row.id}/original.pdf`);
     expect(row.originalPdfSha256).toBe(sha256Hex(uploads[0]!.body));
     expect(new TextDecoder().decode(uploads[0]!.body)).toContain('Asha &lt;b&gt;Rao&lt;/b&gt;');
+    expect(new TextDecoder().decode(uploads[0]!.body)).toContain('by Priya Staff'); // Representative line
     expect(row).toMatchObject({
       status: 'DRAFT',
       templateVersion: 3,
