@@ -12,8 +12,7 @@ export function SignatureStep({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const padRef = useRef<SignaturePad | null>(null);
   const [typedName, setTypedName] = useState('');
-  // One box per Client Declaration statement; like the paper form, each must be ticked.
-  const [ticked, setTicked] = useState(() => LEGAL_TEXT.declarations.map(() => false));
+  const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -44,14 +43,14 @@ export function SignatureStep({
     const pad = padRef.current!;
     if (typedName.trim().length < 2) return setError(copy.sign.needName);
     if (pad.isEmpty()) return setError(copy.sign.needSignature);
-    if (!ticked.every(Boolean)) return setError(copy.sign.needDeclarations);
+    if (!agreed) return setError(copy.sign.needDeclarations);
     setBusy(true);
     setError('');
     try {
       await onSubmit({
         typedName: typedName.trim(),
         signaturePng: pad.toDataURL('image/png'),
-        declarations: ticked.map(() => true as const),
+        declarations: LEGAL_TEXT.declarations.map(() => true as const),
       });
     } catch (err) {
       setError((err as Error).message || copy.common.genericError);
@@ -63,20 +62,9 @@ export function SignatureStep({
     <Card>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <h1 className="text-2xl font-semibold">{copy.sign.title}</h1>
-        <fieldset className="space-y-2">
-          <legend className="mb-1 font-semibold">{copy.sign.declarationsTitle}</legend>
-          <p className="text-sm text-slate-600">{copy.sign.declarationsHint}</p>
-          {LEGAL_TEXT.declarations.map((text, i) => (
-            <Checkbox
-              key={text}
-              id={`declaration-${i}`}
-              checked={ticked[i]!}
-              onChange={(v) => setTicked((t) => t.map((x, j) => (j === i ? v : x)))}
-            >
-              {text}
-            </Checkbox>
-          ))}
-        </fieldset>
+        <Checkbox id="agree-sign" checked={agreed} onChange={setAgreed}>
+          {copy.sign.agree}
+        </Checkbox>
         <p className="text-slate-700">{LEGAL_TEXT.signatureNotice}</p>
         <div>
           <label htmlFor="typedName" className="block font-medium">

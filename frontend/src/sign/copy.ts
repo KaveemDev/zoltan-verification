@@ -45,7 +45,6 @@ export const copy = {
     summaryTitle: 'In short',
     summary: [
       'You are asking {business} to help with your {package} application for {destination}.',
-      'The fee is {currency} {price}. Government and embassy fees are separate.',
       'Visa approval is decided by the authorities and is not guaranteed.',
     ],
     scrollHint: 'Scroll to the end of the agreement to continue.',
@@ -53,8 +52,8 @@ export const copy = {
     loadFailed: "We couldn't load the agreement.",
   },
   consent: {
-    title: 'Quick confirmation video',
-    privacy: 'Privacy policy',
+    title: 'Video confirmation',
+    ask: 'Please record a short video to confirm your agreement.',
   },
   video: {
     title: 'Quick confirmation video',
@@ -101,9 +100,8 @@ export const copy = {
     submitting: 'Signing…',
     needSignature: 'Please draw your signature.',
     needName: 'Please type your full name.',
-    needDeclarations: 'Please tick every statement in the Client Declaration.',
-    declarationsTitle: 'Client Declaration',
-    declarationsHint: 'Please tick each statement before signing.',
+    needDeclarations: 'Please tick the box to agree to the agreement.',
+    agree: 'I agree to the agreement and the Client Declaration.',
   },
   done: {
     title: 'All done, thank you!',

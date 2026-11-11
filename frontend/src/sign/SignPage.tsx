@@ -157,7 +157,6 @@ export function SignPage() {
 
       {step === 'consent' && (
         <ConsentStep
-          business={business}
           onDone={async () => {
             await authed(() =>
               signApi(token, '/events', {
