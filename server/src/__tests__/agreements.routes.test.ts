@@ -2,9 +2,11 @@ import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { signStaffToken } from '../services/auth.service.js';
 
-const createAgreement = vi.fn(async () => ({ id: 'a1', status: 'SENT' }));
+const createAgreement = vi.fn(async () => ({ id: 'a1', html: '<p>x</p>', footer: 'f' }));
+const attachOriginalPdf = vi.fn(async () => ({ id: 'a1', status: 'SENT' }));
 vi.mock('../services/agreement.service.js', () => ({
   createAgreement,
+  attachOriginalPdf,
   listAgreements: vi.fn(async (q: unknown) => ({ items: [], total: 0, ...(q as object) })),
   listActiveTemplates: vi.fn(async () => []),
 }));
@@ -58,6 +60,28 @@ describe('agreements routes', () => {
         customerEmail: 'asha@example.com',
         packageType: 'BOTH',
       }),
+      'u1',
+    );
+  });
+
+  it('passes the uploaded PDF bytes through, with CSRF required', async () => {
+    const pdf = Buffer.from('%PDF-1.7 test');
+    await request(app)
+      .post('/api/v1/agreements/a1/original-pdf')
+      .set('Cookie', `session=${session}`)
+      .set('content-type', 'application/pdf')
+      .send(pdf)
+      .expect(403);
+    const res = await request(app)
+      .post('/api/v1/agreements/a1/original-pdf')
+      .set(auth)
+      .set('content-type', 'application/pdf')
+      .send(pdf)
+      .expect(200);
+    expect(res.body.status).toBe('SENT');
+    expect(attachOriginalPdf).toHaveBeenCalledWith(
+      'a1',
+      new Uint8Array(pdf),
       'u1',
       expect.objectContaining({ ip: expect.any(String) }),
     );

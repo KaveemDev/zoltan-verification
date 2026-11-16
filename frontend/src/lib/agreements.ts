@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AgreementDetail,
+  AgreementDraft,
   AgreementListItem,
   FileUrl,
   IntegrityResult,
@@ -9,6 +10,8 @@ import type {
   Paginated,
   TemplateSummary,
 } from '../shared/index';
+import { useRef } from 'react';
+import { buildAgreementPdf } from './agreementPdf';
 import { api, API_BASE } from './api';
 
 export function useAgreements(query: ListAgreementsQuery) {
@@ -26,11 +29,30 @@ export function useTemplates() {
   return useQuery({ queryKey: ['templates'], queryFn: () => api<TemplateSummary[]>('/templates') });
 }
 
+/**
+ * Creates an agreement in two steps: the server saves a draft and returns the filled-in HTML, this
+ * browser turns it into the PDF, and uploading the PDF makes the server email the signing link.
+ * If the upload fails, pressing the button again retries it with the same draft (no duplicate).
+ */
 export function useCreateAgreement() {
   const qc = useQueryClient();
+  const pending = useRef<{ input: string; draft: AgreementDraft; pdf?: Uint8Array } | null>(null);
   return useMutation({
-    mutationFn: (input: CreateAgreementInput) =>
-      api<AgreementListItem>('/agreements', { method: 'POST', body: input }),
+    mutationFn: async (input: CreateAgreementInput) => {
+      const key = JSON.stringify(input);
+      if (pending.current?.input !== key) {
+        const draft = await api<AgreementDraft>('/agreements', { method: 'POST', body: input });
+        pending.current = { input: key, draft };
+      }
+      const p = pending.current;
+      p.pdf ??= await buildAgreementPdf(p.draft.html, p.draft.footer);
+      const created = await api<AgreementListItem>(`/agreements/${p.draft.id}/original-pdf`, {
+        method: 'POST',
+        raw: new Blob([p.pdf as Uint8Array<ArrayBuffer>], { type: 'application/pdf' }),
+      });
+      pending.current = null;
+      return created;
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['agreements'] }),
   });
 }

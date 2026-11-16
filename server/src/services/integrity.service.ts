@@ -66,7 +66,7 @@ export async function verifyIntegrity(a: Agreement): Promise<IntegrityResult> {
   const video = last('VIDEO_RECORDED');
   const signed = last('SIGNED');
   const mismatches = [
-    meta(created).originalPdfSha256 !== a.originalPdfSha256 &&
+    (meta(created).originalPdfSha256 ?? null) !== a.originalPdfSha256 &&
       'original PDF hash differs from the CREATED event',
     a.videoKey &&
       meta(video).videoSha256 !== a.videoSha256 &&

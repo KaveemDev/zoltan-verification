@@ -2,11 +2,7 @@ import { useState } from 'react';
 import { copy } from '../copy';
 import { Card, ErrorText, PrimaryButton } from '../ui';
 
-export function ConsentStep({
-  onDone,
-}: {
-  onDone: () => Promise<void>;
-}) {
+export function ConsentStep({ onDone }: { onDone: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 

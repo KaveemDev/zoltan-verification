@@ -1,58 +1,20 @@
+import { PDFDocument } from 'pdf-lib';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { sha256Hex } from '../lib/crypto.js';
+import { createFakePrisma } from './fakePrisma.js';
 
-const created: Record<string, unknown>[] = [];
-const statusUpdates: unknown[] = [];
-const auditTypes: string[] = [];
-const uploads: { key: string; body: Uint8Array }[] = [];
-const sendEmail = vi.fn();
+const db = createFakePrisma();
+vi.mock('../db.js', () => ({ prisma: db }));
 
-vi.mock('../db.js', () => {
-  const tx = {
-    agreement: {
-      create: vi.fn(async ({ data }) => created.push(data)),
-      updateMany: vi.fn(async (args) => statusUpdates.push(args)),
-    },
-  };
-  return {
-    prisma: {
-      user: { findUnique: vi.fn(async () => ({ name: 'Priya Staff' })) },
-      agreementTemplate: {
-        findFirst: vi.fn(async ({ where }) =>
-          where.id === 't1'
-            ? {
-                id: 't1',
-                version: 3,
-                bodyHtml: '<p>{{customerName}} {{agreementId}} by {{issuedBy}}</p>',
-              }
-            : null,
-        ),
-      },
-      $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
-      agreement: {
-        findUniqueOrThrow: vi.fn(async () => ({
-          ...created.at(-1),
-          status: statusUpdates.length ? 'SENT' : 'DRAFT',
-          tokenExpiresAt: created.at(-1)!.tokenExpiresAt,
-        })),
-      },
-    },
-  };
-});
+const uploads = new Map<string, Uint8Array>();
 vi.mock('../services/storage.service.js', async (orig) => ({
   ...(await orig<object>()),
-  putObject: vi.fn(async (key: string, body: Uint8Array) => uploads.push({ key, body })),
+  putObject: vi.fn(async (key: string, body: Uint8Array) => void uploads.set(key, body)),
 }));
-vi.mock('../services/pdf.service.js', async (orig) => ({
-  ...(await orig<object>()),
-  renderPdf: vi.fn(async (html: string) => new TextEncoder().encode(`%PDF-fake ${html}`)),
-}));
-vi.mock('../services/audit.service.js', () => ({
-  appendAuditEvent: vi.fn(async (_id: string, type: string) => auditTypes.push(type)),
-}));
+const sendEmail = vi.fn();
 vi.mock('../messaging/index.js', () => ({ getEmail: () => ({ name: 'test', send: sendEmail }) }));
 
-const { createAgreement } = await import('../services/agreement.service.js');
+const { attachOriginalPdf, createAgreement } = await import('../services/agreement.service.js');
 
 const input = {
   customerName: 'Asha <b>Rao</b>',
@@ -64,58 +26,108 @@ const input = {
   currency: 'INR',
   templateId: 't1',
 };
+const realPdf = async () => {
+  const d = await PDFDocument.create();
+  d.addPage([595, 842]);
+  return d.save();
+};
+const row = (id: string) => db.agreement.rows.find((a) => a.id === id)!;
+const types = (id: string) =>
+  db.auditEvent.rows.filter((e) => e.agreementId === id).map((e) => e.type);
 
 beforeEach(() => {
-  created.length = statusUpdates.length = auditTypes.length = uploads.length = 0;
+  for (const t of [db.agreement, db.auditEvent, db.user, db.agreementTemplate]) t.rows.length = 0;
+  uploads.clear();
   sendEmail.mockReset();
+  db.user.rows.push({ id: 'u1', name: 'Priya Staff', email: 'p@example.com', role: 'STAFF' });
+  db.agreementTemplate.rows.push({
+    id: 't1',
+    name: 'Visa Assistance Agreement',
+    version: 3,
+    active: true,
+    bodyHtml: '<p>{{customerName}} {{agreementId}} by {{issuedBy}}</p>',
+  });
 });
 
-describe('createAgreement', () => {
-  it('stores the PDF and its hash, stores only the token hash, sends the link and marks SENT', async () => {
-    sendEmail.mockResolvedValue({ messageId: 'm1' });
-    const res = await createAgreement(input, 'u1', { ip: '1.1.1.1' });
-
-    const row = created[0]!;
-    expect(uploads[0]!.key).toBe(`agreements/${row.id}/original.pdf`);
-    expect(row.originalPdfSha256).toBe(sha256Hex(uploads[0]!.body));
-    expect(new TextDecoder().decode(uploads[0]!.body)).toContain('Asha &lt;b&gt;Rao&lt;/b&gt;');
-    expect(new TextDecoder().decode(uploads[0]!.body)).toContain('by Priya Staff'); // Representative line
-    expect(row).toMatchObject({
+describe('createAgreement (step 1)', () => {
+  it('saves a DRAFT and returns the filled, escaped HTML; nothing is stored or sent yet', async () => {
+    const draft = await createAgreement(input, 'u1');
+    expect(draft.html).toBe(`<p>Asha &lt;b&gt;Rao&lt;/b&gt; ${draft.id} by Priya Staff</p>`);
+    expect(draft.footer).toBe(`Test Travel · Agreement ${draft.id}`);
+    expect(row(draft.id)).toMatchObject({
       status: 'DRAFT',
       templateVersion: 3,
       price: '25000.00',
       createdById: 'u1',
     });
+    expect(row(draft.id).signingTokenHash ?? null).toBeNull();
+    expect(row(draft.id).originalPdfKey ?? null).toBeNull();
+    expect(uploads.size).toBe(0);
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(types(draft.id)).toEqual([]);
+  });
+
+  it('rejects an unknown or inactive template', async () => {
+    await expect(createAgreement({ ...input, templateId: 'nope' }, 'u1')).rejects.toMatchObject({
+      status: 400,
+    });
+    expect(db.agreement.rows).toEqual([]);
+  });
+});
+
+describe('attachOriginalPdf (step 2)', () => {
+  it('stores the PDF and its hash, stores only the token hash, emails the link and marks SENT', async () => {
+    sendEmail.mockResolvedValue({ messageId: 'm1' });
+    const { id } = await createAgreement(input, 'u1');
+    const pdf = await realPdf();
+    const res = await attachOriginalPdf(id, pdf, 'u1', { ip: '1.1.1.1' });
+
+    const a = row(id);
+    expect(uploads.get(`agreements/${id}/original.pdf`)).toEqual(pdf);
+    expect(a.originalPdfSha256).toBe(sha256Hex(pdf));
 
     const msg = sendEmail.mock.calls[0]![0];
     expect(msg.to).toEqual({ email: 'asha@example.com', name: 'Asha <b>Rao</b>' });
-    expect(msg.subject).toBe('Please review and sign your agreement with Test Travel');
     const token = msg.text.match(/http:\/\/localhost:5173\/sign\/([\w-]+)/)![1]!;
     expect(msg.html).toContain(`href="http://localhost:5173/sign/${token}"`);
-    expect(msg.html).toContain('Hi Asha &lt;b&gt;Rao&lt;/b&gt;'); // names are escaped in the HTML email
-    expect(row.signingTokenHash).toBe(sha256Hex(token));
-    expect(JSON.stringify(row)).not.toContain(token);
-    expect((row.tokenExpiresAt as Date).getTime() - Date.now()).toBeGreaterThan(71.9 * 3_600_000);
+    expect(a.signingTokenHash).toBe(sha256Hex(token));
+    expect(JSON.stringify(db.agreement.rows)).not.toContain(token);
+    expect((a.tokenExpiresAt as Date).getTime() - Date.now()).toBeGreaterThan(71.9 * 3_600_000);
 
-    expect(statusUpdates).toEqual([
-      { where: { id: row.id, status: 'DRAFT' }, data: { status: 'SENT' } },
-    ]);
-    expect(auditTypes).toEqual(['CREATED', 'MESSAGE_SENT']);
+    expect(types(id)).toEqual(['CREATED', 'MESSAGE_SENT']);
+    expect(db.auditEvent.rows[0]!.metadata).toMatchObject({
+      originalPdfSha256: sha256Hex(pdf),
+      createdById: 'u1',
+      pages: 1,
+    });
     expect(res.status).toBe('SENT');
   });
 
-  it('keeps DRAFT and logs MESSAGE_FAILED when sending fails', async () => {
-    sendEmail.mockRejectedValue(new Error('network down'));
-    const res = await createAgreement(input, 'u1', {});
-    expect(statusUpdates).toEqual([]);
-    expect(auditTypes).toEqual(['CREATED', 'MESSAGE_FAILED']);
-    expect(res.status).toBe('DRAFT');
+  it('rejects anything that is not a real PDF, and stores nothing', async () => {
+    const { id } = await createAgreement(input, 'u1');
+    for (const bad of [new Uint8Array(), new TextEncoder().encode('%PDF-not really')]) {
+      await expect(attachOriginalPdf(id, bad, 'u1', {})).rejects.toMatchObject({ status: 400 });
+    }
+    expect(uploads.size).toBe(0);
+    expect(row(id).status).toBe('DRAFT');
   });
 
-  it('rejects an unknown or inactive template before doing any work', async () => {
-    await expect(createAgreement({ ...input, templateId: 'nope' }, 'u1', {})).rejects.toMatchObject(
-      { status: 400 },
-    );
-    expect(uploads).toEqual([]);
+  it('accepts the PDF only once', async () => {
+    sendEmail.mockResolvedValue({ messageId: 'm1' });
+    const { id } = await createAgreement(input, 'u1');
+    await attachOriginalPdf(id, await realPdf(), 'u1', {});
+    await expect(attachOriginalPdf(id, await realPdf(), 'u1', {})).rejects.toMatchObject({
+      status: 409,
+    });
+    expect(types(id)).toEqual(['CREATED', 'MESSAGE_SENT']);
+  });
+
+  it('keeps DRAFT and logs MESSAGE_FAILED when the email fails (the PDF stays stored)', async () => {
+    sendEmail.mockRejectedValue(new Error('network down'));
+    const { id } = await createAgreement(input, 'u1');
+    const res = await attachOriginalPdf(id, await realPdf(), 'u1', {});
+    expect(types(id)).toEqual(['CREATED', 'MESSAGE_FAILED']);
+    expect(res.status).toBe('DRAFT');
+    expect(row(id).originalPdfKey).toBe(`agreements/${id}/original.pdf`);
   });
 });

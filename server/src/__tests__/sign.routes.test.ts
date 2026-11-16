@@ -49,11 +49,6 @@ vi.mock('../services/storage.service.js', async (orig) => ({
   sha256OfObject: async (key: string) => sha256Hex(bucket.get(key)!.body),
   deleteObject,
 }));
-// Chrome is covered by pdf.test.ts; here a pdf-lib page stands in for the verification page.
-vi.mock('../services/pdf.service.js', async (orig) => ({
-  ...(await orig<object>()),
-  renderPdf: () => onePagePdf('Verification page'),
-}));
 
 const { createApp } = await import('../app.js');
 const { verifyChain } = await import('../services/audit.service.js');

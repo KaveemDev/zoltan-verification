@@ -20,11 +20,12 @@ function csrfToken() {
 
 export async function api<T>(
   path: string,
-  init: { method?: string; body?: unknown } = {},
+  init: { method?: string; body?: unknown; raw?: Blob } = {},
 ): Promise<T> {
   const method = init.method ?? 'GET';
   const headers: Record<string, string> = {};
   if (init.body !== undefined) headers['content-type'] = 'application/json';
+  if (init.raw) headers['content-type'] = init.raw.type;
   const csrf = csrfToken();
   if (method !== 'GET' && csrf) headers['x-csrf-token'] = decodeURIComponent(csrf);
 
@@ -32,7 +33,7 @@ export async function api<T>(
     method,
     headers,
     credentials: 'include',
-    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+    body: init.raw ?? (init.body === undefined ? undefined : JSON.stringify(init.body)),
   });
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));

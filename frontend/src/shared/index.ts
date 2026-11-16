@@ -82,6 +82,15 @@ export const createAgreementSchema = z.object({
 export type CreateAgreementInput = z.input<typeof createAgreementSchema>;
 export type CreateAgreement = z.output<typeof createAgreementSchema>;
 
+/** Step 1 of creating an agreement (POST /agreements): the staff browser turns `html` into the PDF. */
+export interface AgreementDraft {
+  id: string;
+  /** Template filled in and HTML-escaped by the server; the browser only lays it out. */
+  html: string;
+  /** Footer text for every page. */
+  footer: string;
+}
+
 export const listAgreementsQuery = z.object({
   q: z.string().trim().max(100).optional(),
   status: AgreementStatus.optional(),

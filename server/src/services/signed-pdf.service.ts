@@ -1,5 +1,4 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { escapeHtml, renderPdf } from './pdf.service.js';
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type RGB } from 'pdf-lib';
 
 export interface SignatureDetails {
   agreementId: string;
@@ -36,7 +35,126 @@ export const formatUtc = (d: Date) =>
     .replace('T', ' ')
     .replace(/\.\d+Z$/, ' UTC');
 
-function signaturePageHtml(d: SignatureDetails, signaturePng: Uint8Array) {
+const A4: [number, number] = [595.28, 841.89];
+const MARGIN = { x: 51, top: 57, bottom: 60 };
+const GREY = rgb(0.33, 0.33, 0.33);
+const BLUE = rgb(0.1, 0.3, 0.6);
+
+/**
+ * The verification page(s), drawn with pdf-lib's built-in Helvetica (no browser needed). Helvetica
+ * only covers Latin text, so other characters (e.g. a name typed in Devanagari) print as "?"; the
+ * exact text is always kept in the SIGNED audit event.
+ */
+async function addVerificationPages(
+  doc: PDFDocument,
+  d: SignatureDetails,
+  signaturePng: Uint8Array,
+) {
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const supported = new Set(font.getCharacterSet());
+  const latin = (t: string) =>
+    [...t].map((c) => (supported.has(c.codePointAt(0)!) ? c : '?')).join('');
+  const width = A4[0] - 2 * MARGIN.x;
+
+  /** Word-wraps text to a width; words longer than a line (hashes, browser strings) are split. */
+  const wrap = (text: string, f: PDFFont, size: number, max: number) => {
+    const lines: string[] = [];
+    let line = '';
+    for (const word of latin(text).split(/\s+/)) {
+      let w = word;
+      while (f.widthOfTextAtSize(w, size) > max) {
+        let n = w.length;
+        while (n > 1 && f.widthOfTextAtSize(w.slice(0, n), size) > max) n--;
+        if (line) {
+          lines.push(line);
+          line = '';
+        }
+        lines.push(w.slice(0, n));
+        w = w.slice(n);
+      }
+      const next = line ? `${line} ${w}` : w;
+      if (f.widthOfTextAtSize(next, size) <= max) line = next;
+      else {
+        lines.push(line);
+        line = w;
+      }
+    }
+    if (line) lines.push(line);
+    return lines;
+  };
+
+  let page = doc.addPage(A4);
+  let y = A4[1] - MARGIN.top;
+  const footer = () =>
+    page.drawText(latin(`${d.businessName} · Agreement ${d.agreementId} · Verification`), {
+      x: MARGIN.x,
+      y: 30,
+      size: 7.5,
+      font,
+      color: GREY,
+    });
+  footer();
+  /** Starts a new page when the next block doesn't fit. */
+  const room = (h: number) => {
+    if (y - h >= MARGIN.bottom) return;
+    page = doc.addPage(A4);
+    y = A4[1] - MARGIN.top;
+    footer();
+  };
+  const para = (
+    text: string,
+    o: { f?: PDFFont; size?: number; indent?: number; gap?: number; color?: RGB } = {},
+  ) => {
+    const { f = font, size = 10, indent = 0, gap = 6, color = rgb(0, 0, 0) } = o;
+    for (const l of wrap(text, f, size, width - indent)) {
+      room(size * 1.35);
+      page.drawText(l, { x: MARGIN.x + indent, y: y - size, size, font: f, color });
+      y -= size * 1.35;
+    }
+    y -= gap;
+  };
+
+  para('Electronic signature and verification', { f: bold, size: 17, gap: 4 });
+  para(`${d.businessName} · Agreement ${d.agreementId}`, { size: 10, color: GREY, gap: 12 });
+  para("Signer's confirmation:", { f: bold, gap: 1 });
+  para(`"${d.agreementConsentText}"`, { gap: 10 });
+  para('Client Declaration, each statement ticked by the signer:', { f: bold, gap: 3 });
+  for (const t of d.declarations) para(`[x] ${t}`, { size: 9, indent: 8, gap: 2 });
+  y -= 10;
+
+  // Signature box: drawn signature, then the typed name under a line.
+  const png = await doc.embedPng(signaturePng);
+  const scale = Math.min(80 / png.height, 280 / png.width);
+  const box = { w: 300, h: png.height * scale + 34 };
+  room(box.h + 12);
+  page.drawRectangle({
+    x: MARGIN.x,
+    y: y - box.h,
+    width: box.w,
+    height: box.h,
+    borderColor: GREY,
+    borderWidth: 0.7,
+  });
+  page.drawImage(png, {
+    x: MARGIN.x + 10,
+    y: y - 8 - png.height * scale,
+    width: png.width * scale,
+    height: png.height * scale,
+  });
+  page.drawLine({
+    start: { x: MARGIN.x + 10, y: y - box.h + 22 },
+    end: { x: MARGIN.x + box.w - 10, y: y - box.h + 22 },
+    thickness: 0.7,
+  });
+  page.drawText(wrap(d.typedName, font, 10, box.w - 20)[0] ?? '', {
+    x: MARGIN.x + 10,
+    y: y - box.h + 9,
+    size: 10,
+    font,
+  });
+  y -= box.h + 14;
+
   const rows: [string, string][] = [
     ['Agreement ID', d.agreementId],
     ['Signed by (typed name)', d.typedName],
@@ -55,60 +173,62 @@ function signaturePageHtml(d: SignatureDetails, signaturePng: Uint8Array) {
     ],
     ['Audit trail hash before signing', d.auditChainHead],
   ];
-  const img = `data:image/png;base64,${Buffer.from(signaturePng).toString('base64')}`;
-  return `
-    <h1>Electronic signature and verification</h1>
-    <p>${escapeHtml(d.businessName)} · Agreement ${escapeHtml(d.agreementId)}</p>
-    <p style="margin-top:14pt"><strong>Signer's confirmation:</strong> “${escapeHtml(d.agreementConsentText)}”</p>
-    <p style="margin:10pt 0 4pt"><strong>Client Declaration</strong>, each statement ticked by the signer:</p>
-    <ul style="list-style:none;padding:0;margin:0;font-size:9pt">
-      ${d.declarations.map((t) => `<li style="margin:2pt 0">☑ ${escapeHtml(t)}</li>`).join('')}
-    </ul>
-    <div style="margin:14pt 0;padding:8pt;border:1px solid #999;border-radius:4pt;display:inline-block">
-      <img src="${img}" alt="Signature" style="height:90pt;max-width:300pt;display:block" />
-      <div style="border-top:1px solid #333;margin-top:4pt;padding-top:2pt;font-size:10pt">${escapeHtml(d.typedName)}</div>
-    </div>
-    <table style="border-collapse:collapse;width:100%;font-size:9pt">
-      ${rows
-        .map(
-          ([k, v]) =>
-            `<tr><td style="padding:4pt;border:1px solid #ccc;width:32%;color:#444">${escapeHtml(k)}</td>` +
-            `<td style="padding:4pt;border:1px solid #ccc;word-break:break-all">${escapeHtml(v)}</td></tr>`,
-        )
-        .join('')}
-    </table>
-    <p style="margin-top:12pt;font-size:9pt;color:#444">
-      This page was added automatically when the agreement was signed. The full audit trail and the
-      customer's confirmation video are kept by ${escapeHtml(d.businessName)} as evidence.
-    </p>`;
+  const labelW = 150;
+  const size = 8.5;
+  const lh = size * 1.3;
+  for (const [label, value] of rows) {
+    const labelLines = wrap(label, font, size, labelW - 8);
+    const valueLines = wrap(value, font, size, width - labelW - 8);
+    const h = Math.max(labelLines.length, valueLines.length) * lh + 7;
+    room(h);
+    for (const [x, w] of [
+      [MARGIN.x, labelW],
+      [MARGIN.x + labelW, width - labelW],
+    ] as const) {
+      page.drawRectangle({
+        x,
+        y: y - h,
+        width: w,
+        height: h,
+        borderColor: rgb(0.8, 0.8, 0.8),
+        borderWidth: 0.6,
+      });
+    }
+    labelLines.forEach((l, i) =>
+      page.drawText(l, { x: MARGIN.x + 4, y: y - 4 - size - i * lh, size, font, color: GREY }),
+    );
+    valueLines.forEach((l, i) =>
+      page.drawText(l, { x: MARGIN.x + labelW + 4, y: y - 4 - size - i * lh, size, font }),
+    );
+    y -= h;
+  }
+  y -= 12;
+  para(
+    `This page was added automatically when the agreement was signed. The full audit trail and the ` +
+      `customer's confirmation video are kept by ${d.businessName} as evidence.`,
+    { size: 8.5, color: GREY },
+  );
 }
 
 /**
- * Original pages + a verification page. Each original page gets a one-line ASCII footer stamp
- * (Helvetica can't draw non-Latin text; names go on the Chrome-rendered page, which can).
+ * Original pages (built in the staff member's browser) + verification page(s), with a one-line
+ * footer stamp on every original page. Everything here is pdf-lib: no browser on the server.
  */
 export async function buildSignedPdf(
   original: Uint8Array,
   signaturePng: Uint8Array,
   d: SignatureDetails,
 ): Promise<Uint8Array> {
-  const doc = await PDFDocument.load(original);
+  // updateMetadata: false, or pdf-lib replaces the modification date set below with the save time.
+  const doc = await PDFDocument.load(original, { updateMetadata: false });
   const pageCount = doc.getPageCount();
-  const sigPdf = await PDFDocument.load(
-    await renderPdf(
-      signaturePageHtml(d, signaturePng),
-      `${d.businessName} · Agreement ${d.agreementId} · Verification`,
-      false, // no page numbers: this page is appended after the original pages
-    ),
-  );
-  for (const p of await doc.copyPages(sigPdf, sigPdf.getPageIndices())) doc.addPage(p);
-
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const stamp = `Electronically signed ${formatUtc(d.signedAt)} | Agreement ${d.agreementId} | Verification on page ${pageCount + 1}`;
-  for (const page of doc.getPages().slice(0, pageCount)) {
-    // Between the body (22mm bottom margin) and Chrome's footer line.
-    page.drawText(stamp, { x: 51, y: 40, size: 7, font, color: rgb(0.1, 0.3, 0.6) });
+  for (const page of doc.getPages()) {
+    // Between the body and the page-number footer (frontend/src/lib/agreementPdf.ts sets both).
+    page.drawText(stamp, { x: 51, y: 44, size: 7, font, color: BLUE });
   }
+  await addVerificationPages(doc, d, signaturePng);
   doc.setModificationDate(d.signedAt);
   return doc.save();
 }

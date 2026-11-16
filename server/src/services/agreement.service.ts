@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { Prisma } from '@prisma/client';
+import { PDFDocument } from 'pdf-lib';
 import type {
   AgreementDetail,
+  AgreementDraft,
   AgreementListItem,
   CreateAgreement,
   ListAgreementsQuery,
@@ -17,7 +19,7 @@ import { logger } from '../logger.js';
 import { signingLinkEmail } from '../messaging/emails.js';
 import { getEmail } from '../messaging/index.js';
 import { appendAuditEvent, type RequestContext } from './audit.service.js';
-import { fillTemplate, renderPdf } from './pdf.service.js';
+import { fillTemplate } from './pdf.service.js';
 import { keys, putObject } from './storage.service.js';
 
 const PACKAGE_LABEL: Record<PackageType, string> = {
@@ -82,7 +84,15 @@ const toListItem = (a: ListRow): AgreementListItem => ({
  * Renders and stores the unsigned PDF, creates the agreement with a hashed signing token,
  * then sends the link. A failed send leaves the agreement in DRAFT so staff can resend.
  */
-export async function createAgreement(input: CreateAgreement, userId: string, ctx: RequestContext) {
+/**
+ * Step 1 of 2: saves the agreement as a DRAFT and returns its filled-in HTML. The staff member's
+ * browser turns that into the PDF and uploads it with attachOriginalPdf, which issues and emails
+ * the signing link. Nothing reaches the customer until the PDF is stored.
+ */
+export async function createAgreement(
+  input: CreateAgreement,
+  userId: string,
+): Promise<AgreementDraft> {
   const template = await prisma.agreementTemplate.findFirst({
     where: { id: input.templateId, active: true },
   });
@@ -109,44 +119,83 @@ export async function createAgreement(input: CreateAgreement, userId: string, ct
     issuedBy:
       (await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }))?.name ?? '',
   });
-  const pdf = await renderPdf(html, `${env.BUSINESS_NAME} · Agreement ${id}`);
+
+  await prisma.agreement.create({
+    data: {
+      id,
+      customerName: input.customerName,
+      customerPhone: input.customerPhone,
+      customerEmail: input.customerEmail,
+      packageType: input.packageType,
+      destination: input.destination,
+      price: input.price.toFixed(2),
+      currency: input.currency,
+      notes: input.notes,
+      templateId: template.id,
+      templateVersion: template.version,
+      status: 'DRAFT',
+      createdById: userId,
+      createdAt: now,
+    },
+  });
+  return { id, html, footer: `${env.BUSINESS_NAME} · Agreement ${id}` };
+}
+
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Step 2 of 2: stores the PDF the staff member's browser built, records its SHA-256 in the
+ * agreement and the CREATED audit event, then issues the signing link and emails it. Works once
+ * per agreement: the PDF can't be replaced after it's stored.
+ */
+export async function attachOriginalPdf(
+  id: string,
+  pdf: Uint8Array,
+  userId: string,
+  ctx: RequestContext,
+): Promise<AgreementListItem> {
+  const a = await getAgreementOrThrow(id);
+  if (a.originalPdfKey || a.status !== 'DRAFT') {
+    throw new HttpError(409, 'This agreement already has its PDF.', 'PDF_EXISTS');
+  }
+  if (pdf.length === 0 || pdf.length > MAX_PDF_BYTES) {
+    throw new HttpError(400, 'The PDF is empty or larger than 10 MB.', 'INVALID_PDF');
+  }
+  // Untrusted bytes: accept only something pdf-lib can open as a real, non-empty PDF.
+  const pages = await PDFDocument.load(pdf)
+    .then((d) => d.getPageCount())
+    .catch(() => 0);
+  if (Buffer.from(pdf.subarray(0, 5)).toString('latin1') !== '%PDF-' || pages < 1 || pages > 100) {
+    throw new HttpError(400, 'That file is not a valid agreement PDF.', 'INVALID_PDF');
+  }
+
   const originalPdfSha256 = sha256Hex(pdf);
   const originalPdfKey = keys.originalPdf(id);
   await putObject(originalPdfKey, pdf, 'application/pdf');
 
   const { token, hash } = generateToken();
   await prisma.$transaction(async (tx) => {
-    await tx.agreement.create({
+    const { count } = await tx.agreement.updateMany({
+      where: { id, status: 'DRAFT', originalPdfKey: null },
       data: {
-        id,
-        customerName: input.customerName,
-        customerPhone: input.customerPhone,
-        customerEmail: input.customerEmail,
-        packageType: input.packageType,
-        destination: input.destination,
-        price: input.price.toFixed(2),
-        currency: input.currency,
-        notes: input.notes,
-        templateId: template.id,
-        templateVersion: template.version,
-        status: 'DRAFT',
-        signingTokenHash: hash,
-        tokenExpiresAt: new Date(now.getTime() + env.TOKEN_TTL_HOURS * 3_600_000),
         originalPdfKey,
         originalPdfSha256,
-        createdById: userId,
-        createdAt: now,
+        signingTokenHash: hash,
+        tokenExpiresAt: new Date(Date.now() + env.TOKEN_TTL_HOURS * 3_600_000),
       },
     });
+    if (!count) throw new HttpError(409, 'This agreement already has its PDF.', 'PDF_EXISTS');
     await appendAuditEvent(
       id,
       'CREATED',
       ctx,
       {
-        createdById: userId,
-        templateId: template.id,
-        templateVersion: template.version,
+        createdById: a.createdById,
+        uploadedById: userId,
+        templateId: a.templateId,
+        templateVersion: a.templateVersion,
         originalPdfSha256,
+        pages,
       },
       tx,
     );
@@ -362,6 +411,8 @@ export async function extendExpiry(id: string, hours: number, userId: string, ct
 export async function resendLink(id: string, userId: string, ctx: RequestContext) {
   const a = await getAgreementOrThrow(id);
   assertOpen(a);
+  if (!a.originalPdfKey)
+    throw new HttpError(409, 'The agreement PDF was never uploaded.', 'NO_PDF');
   const { token, hash } = generateToken();
   const tokenExpiresAt = new Date(Date.now() + env.TOKEN_TTL_HOURS * 3_600_000);
   const status = a.status === 'EXPIRED' ? await statusBeforeExpiry(id) : a.status;

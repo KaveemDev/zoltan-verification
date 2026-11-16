@@ -103,7 +103,21 @@ function handle(method: string, path: string, query: URLSearchParams, body: any)
       signedAt: null,
     };
     save([a, ...load()]);
-    return json(201, a);
+    // Same two-step shape as the real API: return the HTML for the browser to turn into a PDF.
+    const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+    return json(201, {
+      id: a.id,
+      footer: `Zoltan Visa · Agreement ${a.id} · DEMO`,
+      html:
+        `<h1>Travel Agreement (demo)</h1><p>Prepared for <b>${esc(body.customerName)}</b>, ` +
+        `${esc(body.packageType)} · ${esc(body.destination)}, fee ${esc(body.currency)} ${esc(body.price)}.</p>` +
+        `<p>In the real app this is the full Visa Assistance Agreement.</p>`,
+    });
+  }
+  const pdfUpload = path.match(/^\/agreements\/([^/]+)\/original-pdf$/);
+  if (pdfUpload && method === 'POST') {
+    const a = load().find((x) => x.id === pdfUpload[1]);
+    return a ? json(200, a) : fail(404, 'NOT_FOUND', 'Agreement not found');
   }
   if (path === '/agreements') {
     const q = (query.get('q') ?? '').toLowerCase();

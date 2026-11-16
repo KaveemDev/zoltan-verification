@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-time setup of a fresh Ubuntu 24.04 droplet. Run as root from the server folder, after
 # filling in .env:   cd /opt/zoltan/server && bash deploy/setup.sh
-# Installs Node 24, Chrome's libraries and fonts (for PDFs), Caddy (HTTPS), creates the 'zoltan'
+# Installs Node 24 and Caddy (HTTPS), creates the 'zoltan'
 # user, installs dependencies, creates the database tables and starts the API as a service.
 set -euo pipefail
 
@@ -10,10 +10,9 @@ APP_DIR=$(cd "$(dirname "$0")/.." && pwd)
 API_DOMAIN=$(grep -E '^API_DOMAIN=' "$APP_DIR/.env" | cut -d= -f2- | tr -d '"')
 [ -n "$API_DOMAIN" ] || { echo "Set API_DOMAIN in .env first"; exit 1; }
 
-echo "==> System packages and fonts (Noto covers Devanagari and other Indian scripts in names)"
+echo "==> System packages"
 apt-get update
-apt-get install -y ca-certificates curl gnupg debian-keyring debian-archive-keyring apt-transport-https \
-  fonts-liberation fonts-noto-core
+apt-get install -y ca-certificates curl gnupg debian-keyring debian-archive-keyring apt-transport-https
 
 echo "==> Node 24"
 if ! node --version 2>/dev/null | grep -q '^v24'; then
@@ -33,10 +32,8 @@ id zoltan >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/no
 chown -R zoltan:zoltan "$APP_DIR"
 chmod 600 "$APP_DIR/.env"
 
-echo "==> Dependencies (also downloads the Chrome build Puppeteer uses)"
+echo "==> Dependencies"
 sudo -u zoltan -H bash -c "cd '$APP_DIR' && npm ci --omit=dev"
-echo "==> Chrome's system libraries"
-(cd "$APP_DIR" && npx puppeteer browsers install chrome --install-deps >/dev/null)
 
 echo "==> Database tables"
 sudo -u zoltan -H bash -c "cd '$APP_DIR' && npm run db:deploy"

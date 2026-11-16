@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import {
   cancelSchema,
   createAgreementSchema,
@@ -11,6 +11,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireCsrf } from '../middleware/csrf.js';
 import { logAccess } from '../services/access-log.service.js';
 import {
+  attachOriginalPdf,
   cancelAgreement,
   createAgreement,
   extendExpiry,
@@ -32,10 +33,21 @@ agreementsRouter.get('/', async (req, res) => {
   res.json(await listAgreements(listAgreementsQuery.parse(req.query)));
 });
 
+// Step 1: save the draft and get the filled-in HTML the staff browser turns into the PDF.
 agreementsRouter.post('/', async (req, res) => {
   const input = createAgreementSchema.parse(req.body);
-  res.status(201).json(await createAgreement(input, req.user!.sub, requestContext(req)));
+  res.status(201).json(await createAgreement(input, req.user!.sub));
 });
+
+// Step 2: the browser uploads that PDF (raw bytes); the server stores it, then emails the link.
+agreementsRouter.post(
+  '/:id/original-pdf',
+  express.raw({ type: 'application/pdf', limit: '10mb' }),
+  async (req, res) => {
+    const pdf = Buffer.isBuffer(req.body) ? new Uint8Array(req.body) : new Uint8Array();
+    res.json(await attachOriginalPdf(id(req.params), pdf, req.user!.sub, requestContext(req)));
+  },
+);
 
 agreementsRouter.get('/:id', async (req, res) => {
   res.json(await getAgreementDetail(id(req.params)));

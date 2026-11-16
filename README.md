@@ -125,7 +125,6 @@ To test the real flow (real email, real SMS, real storage), these are the values
 | `SUPPORT_EMAIL`                                           | Shown to customers, used as reply-to                                       | `support@zoltanvisa.com`                                                                  |
 | `SMS_COUNTRY_CODES`                                       | Empty = every code by email (until DLT is approved); `+91` = SMS for India | empty, later `+91`                                                                        |
 | `SMS_PROVIDER`, `MSG91_AUTH_KEY`, `MSG91_OTP_TEMPLATE_ID` | Only needed once `SMS_COUNTRY_CODES` is set: MSG91 dashboard               | `msg91`, …                                                                                |
-| `PUPPETEER_NO_SANDBOX`                                    |                                                                            | `1` on the droplet                                                                        |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`                 | Your real admin login, used once by the seed                               |                                                                                           |
 
 **`DATABASE_URL`:** the user is your database user from the hosting panel (here
@@ -172,7 +171,7 @@ Zoltan's hosting.
    ```bash
    ssh root@DROPLET_IP
    cd /opt/zoltan/server && cp .env.example .env && nano .env   # fill in the values above
-   bash deploy/setup.sh                                         # Node, Chrome libs, Caddy, service, tables
+   bash deploy/setup.sh                                         # Node, Caddy, service, tables
    sudo -u zoltan -H bash -c 'cd /opt/zoltan/server && npm run db:seed'   # first admin + agreement template
    curl https://api.zoltanvisa.com/health                       # → {"ok":true}
    ```
@@ -245,10 +244,19 @@ weeks. Until then, leave `SMS_COUNTRY_CODES` empty and every code goes by email.
 ## How it works
 
 1. **Staff create an agreement** with the customer's name, mobile number, email, package,
-   destination, fee, template and notes. The server:
-   - fills the template, with the creating staff member as "Zoltan Travel-Visas Representative"
-   - renders it to PDF with headless Chrome and stores it with its SHA-256
-   - creates a signing link (only a hash of it is stored) and emails it
+   destination, fee, template and notes:
+   - the server saves it as a draft and fills in the template (values HTML-escaped), with the
+     creating staff member as "Zoltan Travel-Visas Representative"
+   - the **staff member's browser** turns that into the PDF (pdfmake, a real text PDF) and uploads it
+   - the server checks it's a valid PDF, stores it with its SHA-256, creates a signing link (only a
+     hash of it is stored) and emails it. Nothing reaches the customer before the PDF is stored.
+
+   The signed PDF (footer stamp on every page plus the verification page) is made on the server
+   with pdf-lib, never in the customer's browser, so the customer's device can't alter the
+   evidence. Neither step needs a browser on the server. Limit: both use fonts that cover Latin
+   scripts only, so a name in Devanagari prints incorrectly on the PDF (the exact text is kept in
+   the audit trail).
+
 2. **The customer** opens the link and:
    - confirms it's them with a 6-digit code (SMS for `+91`, email otherwise; 10 min, 5 tries,
      60 s between resends)
