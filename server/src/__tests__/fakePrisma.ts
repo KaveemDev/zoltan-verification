@@ -165,6 +165,7 @@ export function createFakePrisma() {
     otpChallenge: table([], 'createdAt', { consumedAt: null, attempts: 0 }),
     auditEvent: table([], 'seq'),
     $executeRaw: async () => 0,
+    $queryRaw: async () => [],
     // Both forms: interactive (callback) and batch (array of promises).
     $transaction: async (arg: ((tx: unknown) => unknown) | Promise<unknown>[]) =>
       Array.isArray(arg) ? Promise.all(arg) : arg(db),

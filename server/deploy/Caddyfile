@@ -1,0 +1,6 @@
+# HTTPS for the API (installed to /etc/caddy/Caddyfile by deploy/setup.sh).
+# Caddy gets and renews the Let's Encrypt certificate once api.zoltanvisa.com points at the droplet.
+api.zoltanvisa.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:4000
+}

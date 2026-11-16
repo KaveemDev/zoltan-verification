@@ -51,10 +51,6 @@ const schema = z.object({
   /** Shared parent domain for the staff cookies when web and API are on sibling subdomains, e.g. .zoltanvisa.com */
   COOKIE_DOMAIN: z.string().optional(),
 
-  /** on: nightly pg_dump of the database to the bucket (needs pg_dump, present in the API image). */
-  DB_BACKUPS: z.enum(['on', 'off']).default('off'),
-  BACKUP_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
-
   /** Years after signing (or creation, if never signed) before a record is flagged for deletion. */
   RETENTION_YEARS: z.coerce.number().positive().default(3),
 });

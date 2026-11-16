@@ -14,9 +14,9 @@ function hostingerHtaccess(env: Record<string, string>): Plugin {
     configResolved() {
       if (env.VITE_DEMO === 'true') return; // demo build talks to no API or storage
       for (const key of ['VITE_API_URL', 'VITE_STORAGE_ORIGIN']) {
-        if (!/^https:\/\/[^/]+$/.test(env[key] ?? '')) {
+        if (!/^https:\/\/[a-z0-9.-]+(:\d+)?$/.test(env[key] ?? '')) {
           throw new Error(
-            `${key} must be set in frontend/.env.production as https://host (no trailing slash)`,
+            `${key} must be set in frontend/.env.production as a real https://host (no trailing slash, no <placeholder>)`,
           );
         }
       }

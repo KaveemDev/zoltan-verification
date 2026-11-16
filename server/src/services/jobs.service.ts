@@ -1,9 +1,7 @@
-import { spawn } from 'node:child_process';
 import { prisma } from '../db.js';
 import { env } from '../env.js';
 import { logger } from '../logger.js';
 import { appendAuditEvent } from './audit.service.js';
-import { deleteObject, listObjects, putObject } from './storage.service.js';
 
 const OPEN = ['DRAFT', 'SENT', 'OPENED', 'VERIFIED'] as const;
 
@@ -48,39 +46,6 @@ export async function flagRetention(now = new Date()) {
   return count;
 }
 
-/**
- * Dumps the database (pg_dump custom format, already compressed) to backups/db-YYYY-MM-DD.dump in
- * the bucket and deletes backups older than BACKUP_RETENTION_DAYS. Restore: README → "Backups".
- * shortcut: holds the dump in memory; fine while the DB is metadata only (files live in the bucket).
- */
-export async function backupDatabase(now = new Date()) {
-  const url = new URL(env.DATABASE_URL);
-  url.search = ''; // pg_dump rejects Prisma's ?schema= parameter
-  const dump = await new Promise<Buffer>((resolve, reject) => {
-    const p = spawn('pg_dump', ['--format=custom', '--no-owner', `--dbname=${url}`]);
-    const out: Buffer[] = [];
-    let err = '';
-    p.stdout.on('data', (c: Buffer) => out.push(c));
-    p.stderr.on('data', (c: Buffer) => (err += c));
-    p.on('error', reject);
-    p.on('close', (code) =>
-      code === 0
-        ? resolve(Buffer.concat(out))
-        : reject(new Error(`pg_dump exited ${code}: ${err.slice(0, 300)}`)),
-    );
-  });
-  await putObject(
-    `backups/db-${now.toISOString().slice(0, 10)}.dump`,
-    dump,
-    'application/octet-stream',
-  );
-  const cutoff = now.getTime() - env.BACKUP_RETENTION_DAYS * 86_400_000;
-  for (const o of await listObjects('backups/')) {
-    if (o.lastModified.getTime() < cutoff) await deleteObject(o.key);
-  }
-  return dump.length;
-}
-
 /** In-process scheduler. Every instance may run it: both jobs are idempotent. */
 export function startJobs() {
   const run = (name: string, fn: () => Promise<number>) => () =>
@@ -93,11 +58,6 @@ export function startJobs() {
   expire();
   retention();
   const timers = [setInterval(expire, 15 * 60_000), setInterval(retention, 24 * 60 * 60_000)];
-  if (env.DB_BACKUPS === 'on') {
-    const backup = run('db-backup', () => backupDatabase());
-    backup();
-    timers.push(setInterval(backup, 24 * 60 * 60_000));
-  }
   timers.forEach((t) => t.unref());
   return () => timers.forEach(clearInterval);
 }

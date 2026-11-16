@@ -4,7 +4,6 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
-  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -112,12 +111,6 @@ export async function sha256OfObject(key: string): Promise<string> {
 
 export async function deleteObject(key: string) {
   await s3.send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
-}
-
-/** shortcut: first 1000 keys only; enough for date-named backups, paginate if used for more. */
-export async function listObjects(prefix: string) {
-  const res = await s3.send(new ListObjectsV2Command({ Bucket: env.S3_BUCKET, Prefix: prefix }));
-  return (res.Contents ?? []).map((o) => ({ key: o.Key!, lastModified: o.LastModified! }));
 }
 
 export const keys = {

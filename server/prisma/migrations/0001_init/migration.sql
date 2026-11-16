@@ -1,169 +1,130 @@
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
+-- CreateTable
+CREATE TABLE `User` (
+    `id` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `email` VARCHAR(191) NOT NULL,
+    `passwordHash` VARCHAR(191) NOT NULL,
+    `role` ENUM('ADMIN', 'STAFF') NOT NULL DEFAULT 'STAFF',
+    `active` BOOLEAN NOT NULL DEFAULT true,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
--- CreateEnum
-CREATE TYPE "Role" AS ENUM ('ADMIN', 'STAFF');
-
--- CreateEnum
-CREATE TYPE "AgreementStatus" AS ENUM ('DRAFT', 'SENT', 'OPENED', 'VERIFIED', 'SIGNED', 'EXPIRED', 'CANCELLED');
-
--- CreateEnum
-CREATE TYPE "PackageType" AS ENUM ('VISA', 'TRAVEL', 'BOTH');
+    UNIQUE INDEX `User_email_key`(`email`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE "User" (
-    "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
-    "passwordHash" TEXT NOT NULL,
-    "role" "Role" NOT NULL DEFAULT 'STAFF',
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+CREATE TABLE `AgreementTemplate` (
+    `id` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NOT NULL,
+    `bodyHtml` MEDIUMTEXT NOT NULL,
+    `version` INTEGER NOT NULL,
+    `active` BOOLEAN NOT NULL DEFAULT true,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
-    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "AgreementTemplate" (
-    "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "bodyHtml" TEXT NOT NULL,
-    "version" INTEGER NOT NULL,
-    "active" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "AgreementTemplate_pkey" PRIMARY KEY ("id")
-);
+    UNIQUE INDEX `AgreementTemplate_name_version_key`(`name`, `version`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE "Agreement" (
-    "id" TEXT NOT NULL,
-    "customerName" TEXT NOT NULL,
-    "customerPhone" TEXT NOT NULL,
-    "customerEmail" TEXT,
-    "packageType" "PackageType" NOT NULL,
-    "destination" TEXT NOT NULL,
-    "price" DECIMAL(12,2) NOT NULL,
-    "currency" CHAR(3) NOT NULL,
-    "notes" TEXT,
-    "templateId" TEXT NOT NULL,
-    "templateVersion" INTEGER NOT NULL,
-    "consentTextVersion" TEXT,
-    "status" "AgreementStatus" NOT NULL DEFAULT 'DRAFT',
-    "signingTokenHash" TEXT,
-    "tokenExpiresAt" TIMESTAMP(3),
-    "originalPdfKey" TEXT,
-    "originalPdfSha256" TEXT,
-    "signedPdfKey" TEXT,
-    "signedPdfSha256" TEXT,
-    "videoKey" TEXT,
-    "videoSha256" TEXT,
-    "videoMimeType" TEXT,
-    "videoDurationSec" DOUBLE PRECISION,
-    "createdById" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "signedAt" TIMESTAMP(3),
+CREATE TABLE `Agreement` (
+    `id` VARCHAR(191) NOT NULL,
+    `customerName` VARCHAR(191) NOT NULL,
+    `customerPhone` VARCHAR(191) NOT NULL,
+    `customerEmail` VARCHAR(191) NULL,
+    `packageType` ENUM('VISA', 'TRAVEL', 'BOTH') NOT NULL,
+    `destination` VARCHAR(191) NOT NULL,
+    `price` DECIMAL(12, 2) NOT NULL,
+    `currency` CHAR(3) NOT NULL,
+    `notes` TEXT NULL,
+    `templateId` VARCHAR(191) NOT NULL,
+    `templateVersion` INTEGER NOT NULL,
+    `consentTextVersion` VARCHAR(191) NULL,
+    `status` ENUM('DRAFT', 'SENT', 'OPENED', 'VERIFIED', 'SIGNED', 'EXPIRED', 'CANCELLED') NOT NULL DEFAULT 'DRAFT',
+    `signingTokenHash` VARCHAR(191) NULL,
+    `tokenExpiresAt` DATETIME(3) NULL,
+    `originalPdfKey` VARCHAR(191) NULL,
+    `originalPdfSha256` VARCHAR(191) NULL,
+    `signedPdfKey` VARCHAR(191) NULL,
+    `signedPdfSha256` VARCHAR(191) NULL,
+    `videoKey` VARCHAR(191) NULL,
+    `videoSha256` VARCHAR(191) NULL,
+    `videoMimeType` VARCHAR(191) NULL,
+    `videoDurationSec` DOUBLE NULL,
+    `createdById` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `signedAt` DATETIME(3) NULL,
+    `retentionDueAt` DATETIME(3) NULL,
+    `purgedAt` DATETIME(3) NULL,
+    `purgedById` VARCHAR(191) NULL,
 
-    CONSTRAINT "Agreement_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "OtpChallenge" (
-    "id" TEXT NOT NULL,
-    "agreementId" TEXT NOT NULL,
-    "codeHash" TEXT NOT NULL,
-    "expiresAt" TIMESTAMP(3) NOT NULL,
-    "attempts" INTEGER NOT NULL DEFAULT 0,
-    "consumedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "OtpChallenge_pkey" PRIMARY KEY ("id")
-);
+    UNIQUE INDEX `Agreement_signingTokenHash_key`(`signingTokenHash`),
+    INDEX `Agreement_status_createdAt_idx`(`status`, `createdAt`),
+    INDEX `Agreement_customerPhone_idx`(`customerPhone`),
+    INDEX `Agreement_retentionDueAt_idx`(`retentionDueAt`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE "AuditEvent" (
-    "id" TEXT NOT NULL,
-    "agreementId" TEXT NOT NULL,
-    "type" TEXT NOT NULL,
-    "ip" TEXT,
-    "userAgent" TEXT,
-    "deviceInfo" JSONB,
-    "metadata" JSONB,
-    "prevHash" TEXT NOT NULL,
-    "hash" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+CREATE TABLE `OtpChallenge` (
+    `id` VARCHAR(191) NOT NULL,
+    `agreementId` VARCHAR(191) NOT NULL,
+    `codeHash` VARCHAR(191) NOT NULL,
+    `expiresAt` DATETIME(3) NOT NULL,
+    `attempts` INTEGER NOT NULL DEFAULT 0,
+    `consumedAt` DATETIME(3) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
-    CONSTRAINT "AuditEvent_pkey" PRIMARY KEY ("id")
-);
+    INDEX `OtpChallenge_agreementId_createdAt_idx`(`agreementId`, `createdAt`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
-CREATE TABLE "AccessLog" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "agreementId" TEXT,
-    "action" TEXT NOT NULL,
-    "ip" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+CREATE TABLE `AuditEvent` (
+    `id` VARCHAR(191) NOT NULL,
+    `agreementId` VARCHAR(191) NOT NULL,
+    `seq` INTEGER NOT NULL,
+    `type` VARCHAR(191) NOT NULL,
+    `ip` VARCHAR(191) NULL,
+    `userAgent` VARCHAR(512) NULL,
+    `deviceInfo` JSON NULL,
+    `metadata` JSON NULL,
+    `prevHash` VARCHAR(191) NOT NULL,
+    `hash` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
-    CONSTRAINT "AccessLog_pkey" PRIMARY KEY ("id")
-);
+    UNIQUE INDEX `AuditEvent_hash_key`(`hash`),
+    UNIQUE INDEX `AuditEvent_agreementId_seq_key`(`agreementId`, `seq`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateIndex
-CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+-- CreateTable
+CREATE TABLE `AccessLog` (
+    `id` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `agreementId` VARCHAR(191) NULL,
+    `action` VARCHAR(191) NOT NULL,
+    `ip` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
--- CreateIndex
-CREATE UNIQUE INDEX "AgreementTemplate_name_version_key" ON "AgreementTemplate"("name", "version");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Agreement_signingTokenHash_key" ON "Agreement"("signingTokenHash");
-
--- CreateIndex
-CREATE INDEX "Agreement_status_createdAt_idx" ON "Agreement"("status", "createdAt");
-
--- CreateIndex
-CREATE INDEX "Agreement_customerPhone_idx" ON "Agreement"("customerPhone");
-
--- CreateIndex
-CREATE INDEX "OtpChallenge_agreementId_createdAt_idx" ON "OtpChallenge"("agreementId", "createdAt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "AuditEvent_hash_key" ON "AuditEvent"("hash");
-
--- CreateIndex
-CREATE INDEX "AuditEvent_agreementId_createdAt_idx" ON "AuditEvent"("agreementId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "AccessLog_createdAt_idx" ON "AccessLog"("createdAt");
+    INDEX `AccessLog_createdAt_idx`(`createdAt`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- AddForeignKey
-ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_templateId_fkey" FOREIGN KEY ("templateId") REFERENCES "AgreementTemplate"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `Agreement` ADD CONSTRAINT `Agreement_templateId_fkey` FOREIGN KEY (`templateId`) REFERENCES `AgreementTemplate`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Agreement" ADD CONSTRAINT "Agreement_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `Agreement` ADD CONSTRAINT `Agreement_createdById_fkey` FOREIGN KEY (`createdById`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "OtpChallenge" ADD CONSTRAINT "OtpChallenge_agreementId_fkey" FOREIGN KEY ("agreementId") REFERENCES "Agreement"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `OtpChallenge` ADD CONSTRAINT `OtpChallenge_agreementId_fkey` FOREIGN KEY (`agreementId`) REFERENCES `Agreement`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "AuditEvent" ADD CONSTRAINT "AuditEvent_agreementId_fkey" FOREIGN KEY ("agreementId") REFERENCES "Agreement"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `AuditEvent` ADD CONSTRAINT `AuditEvent_agreementId_fkey` FOREIGN KEY (`agreementId`) REFERENCES `Agreement`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "AccessLog" ADD CONSTRAINT "AccessLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `AccessLog` ADD CONSTRAINT `AccessLog_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "AccessLog" ADD CONSTRAINT "AccessLog_agreementId_fkey" FOREIGN KEY ("agreementId") REFERENCES "Agreement"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `AccessLog` ADD CONSTRAINT `AccessLog_agreementId_fkey` FOREIGN KEY (`agreementId`) REFERENCES `Agreement`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
-
--- AuditEvent is append-only: block UPDATE, DELETE and TRUNCATE at the database level.
-CREATE OR REPLACE FUNCTION audit_event_append_only() RETURNS trigger AS $$
-BEGIN
-  RAISE EXCEPTION 'AuditEvent is append-only (% blocked)', TG_OP;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER audit_event_no_update_delete
-  BEFORE UPDATE OR DELETE ON "AuditEvent"
-  FOR EACH ROW EXECUTE FUNCTION audit_event_append_only();
-
-CREATE TRIGGER audit_event_no_truncate
-  BEFORE TRUNCATE ON "AuditEvent"
-  FOR EACH STATEMENT EXECUTE FUNCTION audit_event_append_only();

@@ -40,7 +40,7 @@ export function computeEventHash(e: HashedFields): string {
 }
 
 /**
- * Appends one event to the agreement's chain. A per-agreement advisory lock serialises writers;
+ * Appends one event to the agreement's chain. A row lock on the agreement serialises writers;
  * the unique (agreementId, seq) index is the backstop.
  */
 export async function appendAuditEvent(
@@ -51,7 +51,8 @@ export async function appendAuditEvent(
   tx?: Prisma.TransactionClient,
 ) {
   const run = async (t: Prisma.TransactionClient) => {
-    await t.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${agreementId}))`;
+    // Row lock on the agreement serialises writers for this chain until the transaction ends.
+    await t.$queryRaw`SELECT id FROM \`Agreement\` WHERE id = ${agreementId} FOR UPDATE`;
     const last = await t.auditEvent.findFirst({
       where: { agreementId },
       orderBy: { seq: 'desc' },

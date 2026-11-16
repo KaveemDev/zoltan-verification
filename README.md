@@ -7,25 +7,28 @@ system keeps the signed PDF, the video and a tamper-evident audit trail as proof
 
 Two separate apps, each with its own `package.json`, deployed on its own:
 
-| Folder      | What                                                        | Runs on                                         |
-| ----------- | ----------------------------------------------------------- | ----------------------------------------------- |
-| `frontend/` | React app: customer signing pages and staff dashboard       | Hostinger, `sign.zoltanvisa.com` (static files) |
-| `server/`   | Node API, Postgres database, nightly backups, HTTPS (Caddy) | DigitalOcean droplet, `api.zoltanvisa.com`      |
+| Folder      | What                                                  | Runs on                                         |
+| ----------- | ----------------------------------------------------- | ----------------------------------------------- |
+| `frontend/` | React app: customer signing pages and staff dashboard | Hostinger, `sign.zoltanvisa.com` (static files) |
+| `server/`   | Node API with HTTPS (Caddy), run as a systemd service | DigitalOcean droplet, `api.zoltanvisa.com`      |
 
-PDFs and videos are stored in **Cloudflare R2**. Emails go through **ZeptoMail**, and SMS codes
-through **MSG91**.
+The database is **MySQL 8.4 on Zoltan's hosting** (`mysql.us.cloudlogin.co`, database
+`zoltangroup_verification`). PDFs and videos are stored in **Cloudflare R2**. Emails go through
+**ZeptoMail**, and SMS codes through **MSG91**. No Docker anywhere.
 
 ```mermaid
 flowchart LR
   B[Browsers<br/>staff and customers]
   H[Hostinger<br/>sign.zoltanvisa.com<br/>frontend/dist]
   subgraph D[DigitalOcean droplet · api.zoltanvisa.com]
-    C[Caddy<br/>HTTPS] --> A[Node API] --> P[(Postgres)]
+    C[Caddy<br/>HTTPS] --> A[Node API]
   end
-  R[(Cloudflare R2<br/>PDFs, videos, backups)]
+  P[(MySQL 8.4<br/>mysql.us.cloudlogin.co)]
+  R[(Cloudflare R2<br/>PDFs, videos)]
   B -->|loads pages| H
   B -->|API calls| C
   B -.->|video upload, PDF/video view<br/>short-lived links| R
+  A --> P
   A --> R
   A --> Z[ZeptoMail<br/>emails]
   A --> M[MSG91<br/>SMS codes]
@@ -48,26 +51,29 @@ flowchart LR
 
 ## Run it on your Mac
 
-You need **Node 24** (see `.nvmrc`), **Postgres 16** and **MinIO** (local stand-in for R2).
+You need **Node 24** (see `.nvmrc`), **MySQL 8.4** and **MinIO** (local stand-in for R2).
 
-**One-time setup:**
+**One-time setup.** This runs a separate MySQL 8.4 on port 3307 with its own data folder, so it
+can't interfere with any other MySQL on your Mac:
 
 ```bash
-brew install postgresql@16 minio minio-mc
-brew services start postgresql@16
-"$(brew --prefix postgresql@16)/bin/psql" postgres -c "CREATE ROLE app LOGIN PASSWORD 'app' CREATEDB;" -c "CREATE DATABASE agreements OWNER app;"
+brew install mysql@8.4 minio minio-mc
+"$(brew --prefix mysql@8.4)/bin/mysqld" --initialize-insecure --datadir="$HOME/mysql84-zoltan-dev"
 ```
 
-Start MinIO in its own terminal and leave it running. The key is the dev-only one from
-`server/docker-compose.dev.yml`; always reuse it, or stored files become unreadable.
+Start MySQL and MinIO, each in its own terminal, and leave them running. The MinIO key is
+dev-only; always reuse it, or stored files become unreadable.
 
 ```bash
+"$(brew --prefix mysql@8.4)/bin/mysqld" --datadir="$HOME/mysql84-zoltan-dev" --port=3307 --socket=/tmp/mysql84-zoltan.sock --mysqlx=OFF
 mkdir -p ~/minio-data && MINIO_ROOT_USER=minioadmin MINIO_ROOT_PASSWORD=minioadmin MINIO_KMS_SECRET_KEY="dev-key:MUz6kCw04LfDehhpreLHbnYGbhXrUSHug94rUCZLr14=" minio server ~/minio-data --console-address :9001
 ```
 
 Then, once:
 
 ```bash
+M="$(brew --prefix mysql@8.4)/bin"
+"$M/mysql" -uroot -h127.0.0.1 -P3307 -e "CREATE DATABASE zoltangroup_verification; CREATE USER 'zoltan'@'%' IDENTIFIED BY 'zoltan'; GRANT ALL ON zoltangroup_verification.* TO 'zoltan'@'%';"
 mc alias set local http://localhost:9000 minioadmin minioadmin
 mc mb --ignore-existing local/agreements && mc anonymous set none local/agreements && mc encrypt set sse-s3 local/agreements
 
@@ -81,19 +87,16 @@ cd ../frontend
 npm install
 ```
 
-Docker users can run `docker compose -f server/docker-compose.dev.yml up -d` instead of
-installing Postgres and MinIO.
-
-**Every time:** with Postgres and MinIO running, use two terminals:
+**Every time:** with MySQL and MinIO running, use two terminals:
 
 ```bash
 cd server && npm run dev      # API on http://localhost:4000
 cd frontend && npm run dev    # open http://localhost:5173
 ```
 
-Sign in with `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from `server/.env`. In development
-nothing is really sent: the signing-link email and the code are printed in the **server**
-terminal (look for `[ConsoleProvider]`).
+Sign in with `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from `server/.env`. With
+`EMAIL_PROVIDER=console`, nothing is really sent: the signing-link email and the code are printed
+in the **server** terminal (look for `[ConsoleProvider]`).
 
 ## Values for a real test
 
@@ -101,31 +104,33 @@ To test the real flow (real email, real SMS, real storage), these are the values
 
 ### `server/.env`
 
-| Setting                                                   | Where it comes from                                                        | Example                                         |
-| --------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------- |
-| `NODE_ENV`                                                |                                                                            | `production` on the droplet                     |
-| `WEB_URL`                                                 | The frontend's address                                                     | `https://sign.zoltanvisa.com`                   |
-| `API_URL`                                                 | The server's address                                                       | `https://api.zoltanvisa.com`                    |
-| `API_DOMAIN`                                              | Same host, for the HTTPS certificate                                       | `api.zoltanvisa.com`                            |
-| `COOKIE_DOMAIN`                                           | Parent domain of both                                                      | `.zoltanvisa.com`                               |
-| `POSTGRES_PASSWORD`                                       | Make one up: `openssl rand -hex 24`                                        | letters and digits only                         |
-| `JWT_SECRET`, `SIGNING_SESSION_SECRET`                    | `openssl rand -base64 48`, once each                                       |                                                 |
-| `BUSINESS_NAME`                                           |                                                                            | `Zoltan Visa`                                   |
-| `S3_ENDPOINT`                                             | R2 → bucket → Settings → S3 API                                            | `https://<account-id>.r2.cloudflarestorage.com` |
-| `S3_REGION`, `S3_SSE`                                     | Fixed for R2                                                               | `auto`, `none`                                  |
-| `S3_BUCKET`                                               | Your R2 bucket name                                                        | `zoltan-agreements`                             |
-| `S3_ACCESS_KEY`, `S3_SECRET_KEY`                          | R2 → Manage API tokens                                                     |                                                 |
-| `EMAIL_PROVIDER`                                          |                                                                            | `zeptomail`                                     |
-| `ZEPTOMAIL_API_KEY`                                       | ZeptoMail → Mail Agents → SMTP/API → Send Mail token                       |                                                 |
-| `EMAIL_FROM`                                              | An address on a ZeptoMail-verified domain                                  | `noreply@gb.zoltanvisa.com`                     |
-| `SUPPORT_EMAIL`                                           | Shown to customers, used as reply-to                                       | `support@zoltanvisa.com`                        |
-| `SMS_COUNTRY_CODES`                                       | Empty = every code by email (until DLT is approved); `+91` = SMS for India | empty, later `+91`                              |
-| `SMS_PROVIDER`, `MSG91_AUTH_KEY`, `MSG91_OTP_TEMPLATE_ID` | Only needed once `SMS_COUNTRY_CODES` is set: MSG91 dashboard               | `msg91`, …                                      |
-| `PUPPETEER_NO_SANDBOX`                                    |                                                                            | `1` on the droplet                              |
-| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`                 | Your real admin login, used once by the seed                               |                                                 |
+| Setting                                                   | Where it comes from                                                        | Example                                                                                   |
+| --------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `NODE_ENV`                                                |                                                                            | `production` on the droplet                                                               |
+| `WEB_URL`                                                 | The frontend's address                                                     | `https://sign.zoltanvisa.com`                                                             |
+| `API_URL`                                                 | The server's address                                                       | `https://api.zoltanvisa.com`                                                              |
+| `API_DOMAIN`                                              | Same host, for the HTTPS certificate                                       | `api.zoltanvisa.com`                                                                      |
+| `COOKIE_DOMAIN`                                           | Parent domain of both                                                      | `.zoltanvisa.com`                                                                         |
+| `DATABASE_URL`                                            | Your hosting's MySQL: user, password, host, database (see below)           | `mysql://zoltangroup_verification:…@mysql.us.cloudlogin.co:3306/zoltangroup_verification` |
+| `TRUST_PROXY`                                             | Proxies in front of the API                                                | `1` (Caddy)                                                                               |
+| `JWT_SECRET`, `SIGNING_SESSION_SECRET`                    | `openssl rand -base64 48`, once each                                       |                                                                                           |
+| `BUSINESS_NAME`                                           |                                                                            | `Zoltan Visa`                                                                             |
+| `S3_ENDPOINT`                                             | R2 → bucket → Settings → S3 API                                            | `https://<account-id>.r2.cloudflarestorage.com`                                           |
+| `S3_REGION`, `S3_SSE`                                     | Fixed for R2                                                               | `auto`, `none`                                                                            |
+| `S3_BUCKET`                                               | Your R2 bucket name                                                        | `zoltan-agreements`                                                                       |
+| `S3_ACCESS_KEY`, `S3_SECRET_KEY`                          | R2 → Manage API tokens                                                     |                                                                                           |
+| `EMAIL_PROVIDER`                                          |                                                                            | `zeptomail`                                                                               |
+| `ZEPTOMAIL_API_KEY`                                       | ZeptoMail → Mail Agents → SMTP/API → Send Mail token                       |                                                                                           |
+| `EMAIL_FROM`                                              | An address on a ZeptoMail-verified domain                                  | `noreply@gb.zoltanvisa.com`                                                               |
+| `SUPPORT_EMAIL`                                           | Shown to customers, used as reply-to                                       | `support@zoltanvisa.com`                                                                  |
+| `SMS_COUNTRY_CODES`                                       | Empty = every code by email (until DLT is approved); `+91` = SMS for India | empty, later `+91`                                                                        |
+| `SMS_PROVIDER`, `MSG91_AUTH_KEY`, `MSG91_OTP_TEMPLATE_ID` | Only needed once `SMS_COUNTRY_CODES` is set: MSG91 dashboard               | `msg91`, …                                                                                |
+| `PUPPETEER_NO_SANDBOX`                                    |                                                                            | `1` on the droplet                                                                        |
+| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`                 | Your real admin login, used once by the seed                               |                                                                                           |
 
-`DATABASE_URL`, `TRUST_PROXY` and `DB_BACKUPS` are set by `server/docker-compose.yml` on the
-droplet, so you don't need to fill them in there.
+**`DATABASE_URL`:** the user is your database user from the hosting panel (here
+`zoltangroup_verification`, the same as the database name), with its password. If the password
+has special characters, URL-encode them: `@` → `%40`, `#` → `%23`, `/` → `%2F`, `:` → `%3A`.
 
 ### `frontend/.env.production` (only used by `npm run build`)
 
@@ -140,27 +145,41 @@ in your real inbox, while everything else stays local.
 
 ## Deploy the server (DigitalOcean)
 
-1. Create a droplet: **Ubuntu 24.04**, **Basic 2 GB / 1 vCPU** (about $12/month), region
-   **Bangalore**, with your SSH key and **Backups** ticked.
-2. **Networking → Firewalls:** allow inbound 22 (your IP only), 80 and 443.
-3. **DNS** (Hostinger hPanel → Domains → DNS Zone for `zoltanvisa.com`): add an `A` record `api`
+The server runs directly on Ubuntu, with no Docker: Node 24 runs the API as a **systemd service**
+(it restarts by itself and starts on boot), and **Caddy** provides HTTPS. The database stays on
+Zoltan's hosting.
+
+1. **Create a droplet:** **Ubuntu 24.04**, **Basic 2 GB / 1 vCPU** (about $12/month), with your SSH
+   key and **Backups** ticked. **Pick a region close to the database:** `mysql.us.cloudlogin.co`
+   is in the US, and every page makes several database calls, so a droplet in India would add
+   about 0.25 s to each one. Check with `ping mysql.us.cloudlogin.co` from a test droplet if
+   unsure.
+2. **Networking → Firewalls:** allow inbound 22 (your IP only), 80 and 443, nothing else.
+3. **Let the droplet reach the database:** in the hosting panel → MySQL → **Remote MySQL Access**
+   for `zoltangroup_verification`, add the **droplet's IP** and choose the **longest or permanent**
+   access time. A 1-hour entry will cut the app off when it expires.
+4. **DNS** (Hostinger hPanel → Domains → DNS Zone for `zoltanvisa.com`): add an `A` record `api`
    pointing at the droplet's IP.
-4. On the droplet:
+5. **Copy the code** from your Mac:
 
    ```bash
-   curl -fsSL https://get.docker.com | sh
-   git clone <your GitHub repo> /opt/zoltan && cd /opt/zoltan/server
-   cp .env.example .env && nano .env      # fill in the values above
-   docker compose up -d --build           # API + Postgres + HTTPS; migrations run automatically
-   docker compose run --rm api node_modules/.bin/tsx prisma/seed.ts   # first admin + agreement template
-   curl https://api.zoltanvisa.com/health # → {"ok":true}
+   cd /Users/vemp/Downloads/Kaveem/Personal/Projects/document-verification
+   rsync -av --exclude node_modules --exclude .env server/ root@DROPLET_IP:/opt/zoltan/server/
    ```
 
-The database runs on the droplet itself (the `postgres` container, data in a Docker volume) and
-is never exposed to the internet.
+6. **On the droplet**, fill in `.env` and run the one-time setup:
 
-- **Update:** `cd /opt/zoltan && git pull && cd server && docker compose up -d --build`
-- **Logs:** `docker compose logs -f api`
+   ```bash
+   ssh root@DROPLET_IP
+   cd /opt/zoltan/server && cp .env.example .env && nano .env   # fill in the values above
+   bash deploy/setup.sh                                         # Node, Chrome libs, Caddy, service, tables
+   sudo -u zoltan -H bash -c 'cd /opt/zoltan/server && npm run db:seed'   # first admin + agreement template
+   curl https://api.zoltanvisa.com/health                       # → {"ok":true}
+   ```
+
+- **Update:** rsync the code again (step 5), then on the droplet:
+  `cd /opt/zoltan/server && chown -R zoltan:zoltan . && sudo -u zoltan -H bash -c 'npm ci --omit=dev && npm run db:deploy' && systemctl restart zoltan-api`
+- **Logs:** `journalctl -u zoltan-api -f`. **Status:** `systemctl status zoltan-api`.
 
 ## Deploy the frontend (Hostinger)
 
@@ -253,7 +272,6 @@ weeks. Until then, leave `SMS_COUNTRY_CODES` empty and every code goes by email.
    - every 15 minutes, expired links are marked expired
    - every day, records past `RETENTION_YEARS` are flagged for deletion (nothing is deleted
      automatically)
-   - every night, the database is backed up to R2
 
 ## Security and privacy
 
@@ -270,22 +288,19 @@ weeks. Until then, leave `SMS_COUNTRY_CODES` empty and every code goes by email.
 - **Logs** never contain codes, links or file URLs.
 - **Files:** the bucket is private and encrypted at rest, and every file is accessed through a
   5–10 minute link.
-- **Audit rows** are append-only, enforced by a database trigger. The only exception is an admin
+- **Audit rows** are append-only: the app never changes them, and `npm run db:protect-audit` adds
+  database triggers where the host allows them (most shared hosts don't). The only exception is an admin
   purge for deletion requests or retention, which the access log records.
 - **Customer pages** set a strict Content-Security-Policy and never send the signing link in a
   `Referer` header.
 
 ## Backups
 
-- **Database:** the API runs `pg_dump` every night into `backups/db-YYYY-MM-DD.dump` in R2 and
-  keeps 30 days. To restore, download a dump from R2 and run, in `server/` on the droplet:
-
-  ```bash
-  docker compose exec -T postgres pg_restore -U app -d agreements --clean --if-exists < db-2026-11-07.dump
-  ```
-
-- **Files** live in R2, separate from the droplet.
-- **The whole droplet** is covered by DigitalOcean's weekly backups.
+- **Database:** backed up by Zoltan's hosting (the panel's Backups). Check that it covers
+  `zoltangroup_verification` and how long backups are kept. For an extra copy:
+  `mysqldump -h mysql.us.cloudlogin.co -u zoltangroup_verification -p zoltangroup_verification > backup.sql`.
+- **Files** (PDFs, videos) live in R2, separate from everything else.
+- **The droplet** holds no data (only code and `.env`), and DigitalOcean's weekly backups cover it.
 
 ## Running costs
 
@@ -302,8 +317,8 @@ At about 100 agreements a month (check current prices on each provider's site):
 ## Tests
 
 ```bash
-cd server && npm test                  # 80 tests: API routes, signing, OTP, video, integrity, admin, jobs, email/SMS providers
-cd server && npm run test:integration  # 6 tests against the real Postgres and MinIO
+cd server && npm test                  # 79 tests: API routes, signing, OTP, video, integrity, admin, jobs, email/SMS providers
+cd server && npm run test:integration  # 6 tests against the real MySQL and MinIO
 cd frontend && npm test                # 5 tests: recording helpers
 ```
 

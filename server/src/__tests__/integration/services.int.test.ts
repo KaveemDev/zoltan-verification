@@ -1,6 +1,7 @@
 /**
  * Integration checks the unit tests can't make with the in-memory fake:
- * the append-only trigger, jsonb round-trips through the hash chain, and S3/MinIO/R2 enforcing
+ * the append-only trigger (if the host allows triggers), MySQL JSON round-trips through the hash
+ * chain, and S3/MinIO/R2 enforcing
  * what the presigned upload URL signs.
  *
  *   (from server/) npm run db:deploy && npm run test:integration
@@ -24,11 +25,21 @@ const agreementId = `int-${run}`;
 const userId = `int-user-${run}`;
 const templateId = `int-tpl-${run}`;
 
+// Same switch as the admin purge (retention.service.ts).
 const purgeEvents = (id: string) =>
   prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT set_config('app.allow_audit_purge', 'on', true)`;
-    return tx.auditEvent.deleteMany({ where: { agreementId: id } });
+    await tx.$executeRaw`SET @allow_audit_purge = 1`;
+    try {
+      return await tx.auditEvent.deleteMany({ where: { agreementId: id } });
+    } finally {
+      await tx.$executeRaw`SET @allow_audit_purge = NULL`;
+    }
   });
+
+// The trigger is optional (npm run db:protect-audit); shared hosts often refuse it.
+const hasTrigger =
+  (await prisma.$queryRaw<unknown[]>`SHOW TRIGGERS WHERE \`Trigger\` = 'audit_event_no_delete'`)
+    .length > 0;
 
 beforeAll(async () => {
   await prisma.user.create({
@@ -62,7 +73,7 @@ afterAll(async () => {
 });
 
 describe('audit trail in Postgres', () => {
-  it('keeps the hash chain valid through jsonb (key order, floats, nesting, ms timestamps)', async () => {
+  it('keeps the hash chain valid through MySQL JSON (key order, floats, nesting, ms timestamps)', async () => {
     await appendAuditEvent(
       agreementId,
       'OPENED',
@@ -88,31 +99,35 @@ describe('audit trail in Postgres', () => {
     expect(verifyChain(events)).toEqual({ ok: true });
   });
 
-  it('rejects UPDATE, DELETE and TRUNCATE on AuditEvent', async () => {
+  it.skipIf(!hasTrigger)('rejects UPDATE and DELETE on AuditEvent', async () => {
     const e = await prisma.auditEvent.findFirstOrThrow({ where: { agreementId } });
     await expect(
       prisma.auditEvent.update({ where: { id: e.id }, data: { ip: '10.0.0.1' } }),
     ).rejects.toThrow(/append-only/);
     await expect(prisma.auditEvent.delete({ where: { id: e.id } })).rejects.toThrow(/append-only/);
-    await expect(prisma.$executeRawUnsafe('TRUNCATE "AuditEvent"')).rejects.toThrow(/append-only/);
   });
 
-  it('allows DELETE only inside a purge transaction, and only for that transaction', async () => {
-    const other = `${agreementId}-purge`;
-    await prisma.agreement.create({
-      data: {
-        ...(await prisma.agreement.findUniqueOrThrow({ where: { id: agreementId } })),
-        id: other,
-        signingTokenHash: null,
-      },
-    });
-    await appendAuditEvent(other, 'OPENED');
-    expect((await purgeEvents(other)).count).toBe(1);
-    // The setting was transaction-local: plain deletes are blocked again.
-    const e = await prisma.auditEvent.findFirstOrThrow({ where: { agreementId } });
-    await expect(prisma.auditEvent.delete({ where: { id: e.id } })).rejects.toThrow(/append-only/);
-    await prisma.agreement.delete({ where: { id: other } });
-  });
+  it.skipIf(!hasTrigger)(
+    'allows DELETE only inside a purge transaction, and only for that transaction',
+    async () => {
+      const other = `${agreementId}-purge`;
+      await prisma.agreement.create({
+        data: {
+          ...(await prisma.agreement.findUniqueOrThrow({ where: { id: agreementId } })),
+          id: other,
+          signingTokenHash: null,
+        },
+      });
+      await appendAuditEvent(other, 'OPENED');
+      expect((await purgeEvents(other)).count).toBe(1);
+      // The setting was transaction-local: plain deletes are blocked again.
+      const e = await prisma.auditEvent.findFirstOrThrow({ where: { agreementId } });
+      await expect(prisma.auditEvent.delete({ where: { id: e.id } })).rejects.toThrow(
+        /append-only/,
+      );
+      await prisma.agreement.delete({ where: { id: other } });
+    },
+  );
 });
 
 describe('object storage', () => {

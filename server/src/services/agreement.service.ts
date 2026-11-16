@@ -219,7 +219,7 @@ export async function listAgreements(
     }),
     ...(q && {
       OR: [
-        { customerName: { contains: q, mode: 'insensitive' } },
+        { customerName: { contains: q } }, // MySQL's default collation is case-insensitive
         { customerPhone: { contains: q.replace(/[\s-]/g, '') } },
         { id: q },
       ],

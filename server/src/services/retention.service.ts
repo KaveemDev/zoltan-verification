@@ -49,9 +49,14 @@ export async function purgeAgreement(
     if (key) await deleteObject(key);
 
   await prisma.$transaction(async (tx) => {
-    // Lets this transaction (only) delete audit rows; see migration 0003.
-    await tx.$executeRaw`SELECT set_config('app.allow_audit_purge', 'on', true)`;
-    await tx.auditEvent.deleteMany({ where: { agreementId: id } });
+    // Lets this connection delete audit rows past the trigger (prisma/audit-trigger.sql), then
+    // clears it straight away: the setting would otherwise outlive the transaction on a pooled connection.
+    await tx.$executeRaw`SET @allow_audit_purge = 1`;
+    try {
+      await tx.auditEvent.deleteMany({ where: { agreementId: id } });
+    } finally {
+      await tx.$executeRaw`SET @allow_audit_purge = NULL`;
+    }
     await tx.otpChallenge.deleteMany({ where: { agreementId: id } });
     await tx.agreement.update({
       where: { id },
