@@ -3,7 +3,7 @@ name: Deploy frontend to Hostinger
 # Optional: builds frontend/ and uploads it to the sign.zoltanvisa.com folder over FTPS on every push.
 # (Without it: run `npm run build` in frontend/ and upload dist/ in hPanel → File Manager.)
 # Repository settings → Secrets: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD (from hPanel → Files → FTP Accounts).
-# Repository settings → Variables: API_ORIGIN (https://api.zoltanvisa.com),
+# Repository settings → Variables: API_ORIGIN (https://api-sign.zoltanvisa.com),
 #   STORAGE_ORIGIN (https://<account-id>.r2.cloudflarestorage.com), optional FTP_SERVER_DIR, FTP_PROTOCOL,
 #   DEMO=true for a no-backend client preview (API_ORIGIN/STORAGE_ORIGIN then not needed).
 on:

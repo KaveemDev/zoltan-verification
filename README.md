@@ -10,7 +10,7 @@ Two separate apps, each with its own `package.json`, deployed on its own:
 | Folder      | What                                                        | Runs on                                         |
 | ----------- | ----------------------------------------------------------- | ----------------------------------------------- |
 | `frontend/` | React app: customer signing pages and staff dashboard       | Hostinger, `sign.zoltanvisa.com` (static files) |
-| `server/`   | Plain Node API (`npm start`), with Caddy in front for HTTPS | DigitalOcean droplet, `api.zoltanvisa.com`      |
+| `server/`   | Plain Node API (`npm start`), with Caddy in front for HTTPS | DigitalOcean droplet, `api-sign.zoltanvisa.com`      |
 
 The database is **MySQL 8.4 on Zoltan's hosting** (`mysql.us.cloudlogin.co`, database
 `zoltangroup_verification`). PDFs and videos are stored in **Cloudflare R2**. Emails go through
@@ -20,7 +20,7 @@ The database is **MySQL 8.4 on Zoltan's hosting** (`mysql.us.cloudlogin.co`, dat
 flowchart LR
   B[Browsers<br/>staff and customers]
   H[Hostinger<br/>sign.zoltanvisa.com<br/>frontend/dist]
-  subgraph D[DigitalOcean droplet · api.zoltanvisa.com]
+  subgraph D[DigitalOcean droplet · api-sign.zoltanvisa.com]
     C[Caddy<br/>HTTPS] --> A[Node API]
   end
   P[(MySQL 8.4<br/>mysql.us.cloudlogin.co)]
@@ -108,8 +108,8 @@ To test the real flow (real email, real SMS, real storage), these are the values
 | --------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `NODE_ENV`                                                |                                                                            | `production` on the droplet                                                               |
 | `WEB_URL`                                                 | The frontend's address                                                     | `https://sign.zoltanvisa.com`                                                             |
-| `API_URL`                                                 | The server's address                                                       | `https://api.zoltanvisa.com`                                                              |
-| `API_DOMAIN`                                              | Same host, for the HTTPS certificate                                       | `api.zoltanvisa.com`                                                                      |
+| `API_URL`                                                 | The server's address                                                       | `https://api-sign.zoltanvisa.com`                                                              |
+| `API_DOMAIN`                                              | Same host, for the HTTPS certificate                                       | `api-sign.zoltanvisa.com`                                                                      |
 | `COOKIE_DOMAIN`                                           | Parent domain of both                                                      | `.zoltanvisa.com`                                                                         |
 | `DATABASE_URL`                                            | Your hosting's MySQL: user, password, host, database (see below)           | `mysql://zoltangroup_verification:…@mysql.us.cloudlogin.co:3306/zoltangroup_verification` |
 | `TRUST_PROXY`                                             | Proxies in front of the API                                                | `1` (Caddy)                                                                               |
@@ -135,7 +135,7 @@ has special characters, URL-encode them: `@` → `%40`, `#` → `%23`, `/` → `
 
 | Setting               | Example                                                                 |
 | --------------------- | ----------------------------------------------------------------------- |
-| `VITE_API_URL`        | `https://api.zoltanvisa.com`                                            |
+| `VITE_API_URL`        | `https://api-sign.zoltanvisa.com`                                            |
 | `VITE_STORAGE_ORIGIN` | `https://<account-id>.r2.cloudflarestorage.com` (same as `S3_ENDPOINT`) |
 
 **Trying real email from your Mac first:** in your local `server/.env`, set `EMAIL_PROVIDER=zeptomail`
@@ -188,9 +188,9 @@ database stays on Zoltan's hosting.
 
    ```bash
    apt-get install -y caddy
-   printf 'api.zoltanvisa.com {\n\treverse_proxy localhost:4000\n}\n' > /etc/caddy/Caddyfile
+   printf 'api-sign.zoltanvisa.com {\n\treverse_proxy localhost:4000\n}\n' > /etc/caddy/Caddyfile
    systemctl reload caddy
-   curl https://api.zoltanvisa.com/health   # → {"ok":true}
+   curl https://api-sign.zoltanvisa.com/health   # → {"ok":true}
    ```
 
 - **Update:** rsync the code again (step 5), then on the droplet:

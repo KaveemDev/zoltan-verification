@@ -1,6 +1,6 @@
 /**
  * API origin. Empty in dev (Vite proxies /api); in production the API lives on its own subdomain,
- * e.g. VITE_API_URL=https://api.zoltanvisa.com, and staff cookies are shared via COOKIE_DOMAIN.
+ * e.g. VITE_API_URL=https://api-sign.zoltanvisa.com, and staff cookies are shared via COOKIE_DOMAIN.
  */
 export const API_BASE = `${import.meta.env.VITE_API_URL ?? ''}/api/v1`;
 
