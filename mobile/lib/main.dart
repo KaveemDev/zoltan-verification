@@ -18,7 +18,7 @@ class KioskApp extends StatelessWidget {
   Widget build(BuildContext context) => ValueListenableBuilder(
         valueListenable: kiosk,
         builder: (_, _, _) => MaterialApp(
-          title: 'Zoltan Visa',
+          title: 'Zoltan Sign',
           debugShowCheckedModeBanner: false,
           theme: buildTheme(),
           home: const WelcomeScreen(),
