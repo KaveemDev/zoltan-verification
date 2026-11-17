@@ -7,10 +7,10 @@ system keeps the signed PDF, the video and a tamper-evident audit trail as proof
 
 Two separate apps, each with its own `package.json`, deployed on its own:
 
-| Folder      | What                                                  | Runs on                                         |
-| ----------- | ----------------------------------------------------- | ----------------------------------------------- |
-| `frontend/` | React app: customer signing pages and staff dashboard | Hostinger, `sign.zoltanvisa.com` (static files) |
-| `server/`   | Node API with HTTPS (Caddy), run as a systemd service | DigitalOcean droplet, `api.zoltanvisa.com`      |
+| Folder      | What                                                        | Runs on                                         |
+| ----------- | ----------------------------------------------------------- | ----------------------------------------------- |
+| `frontend/` | React app: customer signing pages and staff dashboard       | Hostinger, `sign.zoltanvisa.com` (static files) |
+| `server/`   | Plain Node API (`npm start`), with Caddy in front for HTTPS | DigitalOcean droplet, `api.zoltanvisa.com`      |
 
 The database is **MySQL 8.4 on Zoltan's hosting** (`mysql.us.cloudlogin.co`, database
 `zoltangroup_verification`). PDFs and videos are stored in **Cloudflare R2**. Emails go through
@@ -144,9 +144,9 @@ in your real inbox, while everything else stays local.
 
 ## Deploy the server (DigitalOcean)
 
-The server runs directly on Ubuntu, with no Docker: Node 24 runs the API as a **systemd service**
-(it restarts by itself and starts on boot), and **Caddy** provides HTTPS. The database stays on
-Zoltan's hosting.
+A plain Node app: `npm start`, kept running by **pm2**. **Caddy** sits in front only to give the
+API its HTTPS address (browsers block `http` calls from the `https` website). No Docker. The
+database stays on Zoltan's hosting.
 
 1. **Create a droplet:** **Ubuntu 24.04**, **Basic 2 GB / 1 vCPU** (about $12/month), with your SSH
    key and **Backups** ticked. **Pick a region close to the database:** `mysql.us.cloudlogin.co`
@@ -166,19 +166,40 @@ Zoltan's hosting.
    rsync -av --exclude node_modules --exclude .env server/ root@DROPLET_IP:/opt/zoltan/server/
    ```
 
-6. **On the droplet**, fill in `.env` and run the one-time setup:
+6. **On the droplet**, install Node and start the app:
 
    ```bash
    ssh root@DROPLET_IP
-   cd /opt/zoltan/server && cp .env.example .env && nano .env   # fill in the values above
-   bash deploy/setup.sh                                         # Node, Caddy, service, tables
-   sudo -u zoltan -H bash -c 'cd /opt/zoltan/server && npm run db:seed'   # first admin + agreement template
-   curl https://api.zoltanvisa.com/health                       # → {"ok":true}
+   curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y nodejs
+   npm install -g pm2
+
+   cd /opt/zoltan/server
+   cp .env.example .env && nano .env    # fill in the values above
+   npm ci                               # install
+   npm run db:deploy                    # create the tables
+   npm run db:protect-audit             # optional: shared hosts usually refuse it, that's fine
+   npm run db:seed                      # first admin + agreement template
+
+   pm2 start npm --name api -- start    # run the server (port 4000)
+   pm2 save && pm2 startup              # restart it automatically after a reboot
+   ```
+
+7. **HTTPS** with Caddy (it gets and renews the certificate by itself):
+
+   ```bash
+   apt-get install -y caddy
+   printf 'api.zoltanvisa.com {\n\treverse_proxy localhost:4000\n}\n' > /etc/caddy/Caddyfile
+   systemctl reload caddy
+   curl https://api.zoltanvisa.com/health   # → {"ok":true}
    ```
 
 - **Update:** rsync the code again (step 5), then on the droplet:
-  `cd /opt/zoltan/server && chown -R zoltan:zoltan . && sudo -u zoltan -H bash -c 'npm ci --omit=dev && npm run db:deploy' && systemctl restart zoltan-api`
-- **Logs:** `journalctl -u zoltan-api -f`. **Status:** `systemctl status zoltan-api`.
+  `cd /opt/zoltan/server && npm ci && npm run db:deploy && pm2 restart api`
+- **Logs:** `pm2 logs api`. **Status:** `pm2 status`.
+- **Change a setting:** edit `.env`, then `pm2 restart api`.
+
+The app runs as `root` to keep this simple. That's acceptable on a droplet that only runs this
+API; for extra safety, create a separate user and run pm2 as that user instead.
 
 ## Deploy the frontend (Hostinger)
 

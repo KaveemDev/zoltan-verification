@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
-/** Runs against the real services from docker-compose, using the repo-root .env. */
+/** Runs against a real MySQL and S3-compatible storage (MinIO locally), using server/.env. */
 export default defineConfig({
   test: {
     environment: 'node',
