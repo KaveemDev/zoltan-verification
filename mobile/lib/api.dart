@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Server origin, e.g. https://api.example.com. Set once from the admin Settings screen.
+/// Server origin. Defaults to production; staff can override it under Settings (e.g. for a test server).
 class Config {
-  static String baseUrl = const String.fromEnvironment('API_URL');
+  static String baseUrl = const String.fromEnvironment('API_URL', defaultValue: 'https://api-sign.zoltanvisa.com');
   static late SharedPreferences _p;
 
   static Future<void> load() async {
