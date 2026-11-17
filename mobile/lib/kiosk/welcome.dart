@@ -16,8 +16,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     final c = kiosk.value;
-    // Ready = staff have signed in on this device and chosen an agreement.
-    final ready = StaffApi.i.signedIn && c.hasAgreement;
+    // Ready = an admin saved the setup on this device (stays ready after they sign out or close the app).
+    final ready = DeviceApi.ready && c.hasAgreement;
     return Shell(
       child: Column(
         children: [
@@ -30,7 +30,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   Body(
                     ready
                         ? c.welcomeMessage
-                        : 'A staff member needs to sign in and choose the agreement for this device.',
+                        : 'An admin needs to sign in, choose the agreement and save the device setup.',
                   ),
                   gap(28),
                   if (ready)

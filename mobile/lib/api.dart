@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -70,9 +71,11 @@ class SignApi {
       if (body != null) 'content-type': 'application/json',
       if (auth && session != null) 'authorization': 'Bearer $session',
     };
-    return _send(() => post
-        ? http.post(_u(path), headers: h, body: body == null ? null : jsonEncode(body))
-        : http.get(_u(path), headers: h));
+    return _send(
+      () => post
+          ? http.post(_u(path), headers: h, body: body == null ? null : jsonEncode(body))
+          : http.get(_u(path), headers: h),
+    );
   }
 }
 
@@ -120,8 +123,7 @@ class StaffApi {
     final old = Map.of(_jar);
     _jar.clear();
     try {
-      return await call('POST', '/auth/login', body: {'email': email, 'password': password})
-          as Map<String, dynamic>;
+      return await call('POST', '/auth/login', body: {'email': email, 'password': password}) as Map<String, dynamic>;
     } catch (_) {
       _jar
         ..clear()
@@ -137,4 +139,41 @@ class StaffApi {
       _jar.clear();
     }
   }
+}
+
+/// The customer-device credential an admin creates by saving the device setup. Lets this device create
+/// agreements from that setup with no one signed in, until the setup is saved again.
+class DeviceApi {
+  static const _store = FlutterSecureStorage();
+  static String? token;
+
+  static bool get ready => token != null;
+
+  static Future<void> load() async {
+    try {
+      token = await _store.read(key: 'deviceToken');
+    } catch (_) {
+      token = null; // unreadable keystore: the admin sets the device up again
+    }
+  }
+
+  static Future<void> save(String t) async {
+    await _store.write(key: 'deviceToken', value: t);
+    token = t;
+  }
+
+  static Future<void> clear() async {
+    token = null;
+    try {
+      await _store.delete(key: 'deviceToken');
+    } catch (_) {}
+  }
+
+  static Future<dynamic> call(String path, {Object? body, List<int>? raw}) => _send(
+    () => http.post(
+      Uri.parse('${Config.api}/kiosk$path'),
+      headers: {'authorization': 'Bearer $token', 'content-type': raw != null ? 'application/pdf' : 'application/json'},
+      body: raw ?? jsonEncode(body),
+    ),
+  );
 }

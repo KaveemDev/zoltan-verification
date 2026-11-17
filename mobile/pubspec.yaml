@@ -45,6 +45,7 @@ dependencies:
   google_fonts: ^8.2.1
   pdf: ^3.13.1
   html: ^0.15.7
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:

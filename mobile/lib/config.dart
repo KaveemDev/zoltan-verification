@@ -10,7 +10,8 @@ class KioskConfig {
     this.templateId = '',
     this.templateName = '',
     this.welcomeTitle = 'Welcome to Zoltan Visa',
-    this.welcomeMessage = 'Fill in your details, then read and sign your agreement securely on this device. It takes about 5 minutes.',
+    this.welcomeMessage =
+        'Fill in your details, then read and sign your agreement securely on this device. It takes about 5 minutes.',
     this.startLabel = 'Get started',
     this.primary = 0xFFD6194A,
     this.phonePrefix = '+91',
@@ -35,23 +36,23 @@ class KioskConfig {
   bool get hasAgreement => templateId.isNotEmpty;
 
   Map<String, dynamic> toJson() => {
-        'templateId': templateId,
-        'templateName': templateName,
-        'welcomeTitle': welcomeTitle,
-        'welcomeMessage': welcomeMessage,
-        'startLabel': startLabel,
-        'primary': primary,
-        'phonePrefix': phonePrefix,
-        'askDestination': askDestination,
-        'defaultDestination': defaultDestination,
-        'packages': packages,
-        'defaultPackage': defaultPackage,
-        'prices': prices,
-        'currency': currency,
-        'askNotes': askNotes,
-        'doneSeconds': doneSeconds,
-        'videoScript': videoScript,
-      };
+    'templateId': templateId,
+    'templateName': templateName,
+    'welcomeTitle': welcomeTitle,
+    'welcomeMessage': welcomeMessage,
+    'startLabel': startLabel,
+    'primary': primary,
+    'phonePrefix': phonePrefix,
+    'askDestination': askDestination,
+    'defaultDestination': defaultDestination,
+    'packages': packages,
+    'defaultPackage': defaultPackage,
+    'prices': prices,
+    'currency': currency,
+    'askNotes': askNotes,
+    'doneSeconds': doneSeconds,
+    'videoScript': videoScript,
+  };
 
   factory KioskConfig.fromJson(Map<String, dynamic> j) {
     final d = KioskConfig();
@@ -60,7 +61,8 @@ class KioskConfig {
       templateName: j['templateName'] ?? d.templateName,
       welcomeTitle: j['welcomeTitle'] ?? d.welcomeTitle,
       // Devices that saved the old default wording ("…on this tablet…") get the new one.
-      welcomeMessage: (j['welcomeMessage'] as String?)?.replaceAll('on this tablet', 'on this device') ?? d.welcomeMessage,
+      welcomeMessage:
+          (j['welcomeMessage'] as String?)?.replaceAll('on this tablet', 'on this device') ?? d.welcomeMessage,
       startLabel: j['startLabel'] ?? d.startLabel,
       primary: j['primary'] ?? d.primary,
       phonePrefix: j['phonePrefix'] ?? d.phonePrefix,

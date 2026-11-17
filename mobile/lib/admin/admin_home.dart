@@ -367,8 +367,9 @@ class _SettingsTabState extends State<SettingsTab> {
         onPressed: () async {
           await Config.setBaseUrl(_url.text);
           if (context.mounted) {
-            ScaffoldMessenger.of(context)
-                .showSnackBar(const SnackBar(content: Text('Saved. Sign in again to use the new server.')));
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Saved. Sign in again to use the new server.')));
           }
         },
         child: const Text('Save'),

@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { adminRouter } from './routes/admin.routes.js';
 import { agreementsRouter } from './routes/agreements.routes.js';
 import { authRouter } from './routes/auth.routes.js';
+import { kioskRouter } from './routes/kiosk.routes.js';
 import { signRouter } from './routes/sign.routes.js';
 import { templatesRouter } from './routes/templates.routes.js';
 
@@ -43,6 +44,17 @@ export function createApp() {
   app.use('/api/v1/templates', templatesRouter);
   app.use('/api/v1', adminRouter);
   app.use('/api/v1/sign', signRouter());
+  // Customer devices: a few agreements an hour per device in practice, so a tight per-IP limit.
+  app.use(
+    '/api/v1/kiosk',
+    rateLimit({
+      windowMs: 15 * 60_000,
+      limit: 60,
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+    }),
+    kioskRouter,
+  );
 
   app.use((_req, res) => res.status(404).json({ error: 'NOT_FOUND' }));
   app.use(errorHandler);

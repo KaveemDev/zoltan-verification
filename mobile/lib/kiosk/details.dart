@@ -48,10 +48,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
       _status = 'Preparing your agreement…';
     });
     try {
-      final api = StaffApi.i;
       final draft =
-          await api.call(
-                'POST',
+          await DeviceApi.call(
                 '/agreements',
                 body: {
                   'customerName': _name.text.trim(),
@@ -59,28 +57,24 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   'customerEmail': _email.text.trim(),
                   'packageType': _pkg,
                   'destination': c.askDestination ? _dest.text.trim() : c.defaultDestination,
-                  'price': c.prices[_pkg],
-                  'currency': c.currency,
-                  'templateId': c.templateId,
                   if (c.askNotes && _notes.text.trim().isNotEmpty) 'notes': _notes.text.trim(),
                 },
               )
               as Map<String, dynamic>;
       final pdf = await buildAgreementPdf(draft['html'], draft['footer']);
       setState(() => _status = 'Almost ready…');
-      final r =
-          await api.call('POST', '/agreements/${draft['id']}/original-pdf?kiosk=1', raw: pdf) as Map<String, dynamic>;
-      // An old server ignores ?kiosk=1, tries to email the link instead and returns no token.
+      final r = await DeviceApi.call('/agreements/${draft['id']}/original-pdf', raw: pdf) as Map<String, dynamic>;
       final token = r['signingToken'];
       if (token is! String) throw ApiError(0, 'SERVER_OUTDATED', '');
       if (!mounted) return;
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => FlowScreen(token: token)));
     } on ApiError catch (e) {
-      if (e.status == 401) StaffApi.i.expire();
+      if (e.code == 'KIOSK_SETUP_INVALID') await DeviceApi.clear();
       _err = switch (e.code) {
-        'UNAUTHENTICATED' => 'This device needs a staff sign-in. Please ask our staff for help.',
+        'KIOSK_SETUP_INVALID' => 'This device needs to be set up again. Please ask our staff for help.',
+        'PACKAGE_NOT_OFFERED' => 'This package is not available here. Please choose another or ask our staff for help.',
         'TEMPLATE_NOT_FOUND' => 'The agreement for this device is no longer available. Please ask our staff for help.',
-        'SERVER_OUTDATED' =>
+        'SERVER_OUTDATED' || 'NOT_FOUND' =>
           'This device can’t start signing right now. Please ask our staff for help. (Staff: the server is running an old version without on-device signing.)',
         _ => e.message,
       };

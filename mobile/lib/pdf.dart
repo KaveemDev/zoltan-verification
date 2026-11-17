@@ -23,18 +23,26 @@ Future<Uint8List> buildAgreementPdf(String html, String footer) async {
   }
   final body = html_parser.parse(html).body!;
   final doc = pw.Document(title: footer, creator: 'Zoltan Visa agreements');
-  doc.addPage(pw.MultiPage(
-    pageTheme: pw.PageTheme(
-      pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.fromLTRB(51, 57, 51, 62),
-      theme: theme,
+  doc.addPage(
+    pw.MultiPage(
+      pageTheme: pw.PageTheme(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.fromLTRB(51, 57, 51, 62),
+        theme: theme,
+      ),
+      footer: (c) => pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(footer, style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
+          pw.Text(
+            'Page ${c.pageNumber} of ${c.pagesCount}',
+            style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700),
+          ),
+        ],
+      ),
+      build: (_) => _blocks(body.nodes),
     ),
-    footer: (c) => pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-      pw.Text(footer, style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
-      pw.Text('Page ${c.pageNumber} of ${c.pagesCount}', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
-    ]),
-    build: (_) => _blocks(body.nodes),
-  ));
+  );
   return doc.save();
 }
 
@@ -57,22 +65,39 @@ List<pw.Widget> _blocks(List<dom.Node> nodes) {
     } else if (n is dom.Element) {
       switch (n.localName) {
         case 'h1':
-          out.add(pw.Padding(padding: const pw.EdgeInsets.only(bottom: 10), child: _para(_inline(n.nodes, pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold)), _align(n))));
+          out.add(
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 10),
+              child: _para(_inline(n.nodes, pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold)), _align(n)),
+            ),
+          );
         case 'h2':
-          out.add(pw.Padding(padding: const pw.EdgeInsets.only(top: 10, bottom: 4), child: _para(_inline(n.nodes, pw.TextStyle(fontSize: 12.5, fontWeight: pw.FontWeight.bold)), _align(n))));
+          out.add(
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(top: 10, bottom: 4),
+              child: _para(_inline(n.nodes, pw.TextStyle(fontSize: 12.5, fontWeight: pw.FontWeight.bold)), _align(n)),
+            ),
+          );
         case 'p':
-          out.add(pw.Padding(padding: const pw.EdgeInsets.only(bottom: 6), child: _para(_inline(n.nodes, _base), _align(n))));
+          out.add(
+            pw.Padding(padding: const pw.EdgeInsets.only(bottom: 6), child: _para(_inline(n.nodes, _base), _align(n))),
+          );
         case 'ol' || 'ul':
           var i = 0;
           for (final li in n.children.where((c) => c.localName == 'li')) {
             i++;
-            out.add(pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 2, left: 6),
-              child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.SizedBox(width: 20, child: pw.Text(n.localName == 'ol' ? '$i.' : '•', style: _base)),
-                pw.Expanded(child: _para(_inline(li.nodes, _base), null)),
-              ]),
-            ));
+            out.add(
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 2, left: 6),
+                child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.SizedBox(width: 20, child: pw.Text(n.localName == 'ol' ? '$i.' : '•', style: _base)),
+                    pw.Expanded(child: _para(_inline(li.nodes, _base), null)),
+                  ],
+                ),
+              ),
+            );
           }
           out.add(pw.SizedBox(height: 6));
         case 'table':
@@ -116,20 +141,30 @@ pw.Widget _table(dom.Element t) {
   final first = rows.first.children;
   final widths = <int, pw.TableColumnWidth>{
     for (var i = 0; i < first.length; i++)
-      i: pw.FlexColumnWidth(double.tryParse(RegExp(r'width:\s*(\d+(?:\.\d+)?)%').firstMatch(first[i].attributes['style'] ?? '')?.group(1) ?? '') ?? 100 / first.length),
+      i: pw.FlexColumnWidth(
+        double.tryParse(
+              RegExp(r'width:\s*(\d+(?:\.\d+)?)%').firstMatch(first[i].attributes['style'] ?? '')?.group(1) ?? '',
+            ) ??
+            100 / first.length,
+      ),
   };
   return pw.Table(
     border: pw.TableBorder.all(color: PdfColors.grey500, width: 0.5),
     columnWidths: widths,
     children: [
       for (final r in rows)
-        pw.TableRow(children: [
-          for (final c in r.children)
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(4),
-              child: _para(_inline(c.nodes, c.localName == 'th' ? _base.copyWith(fontWeight: pw.FontWeight.bold) : _base), _align(c)),
-            ),
-        ]),
+        pw.TableRow(
+          children: [
+            for (final c in r.children)
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(4),
+                child: _para(
+                  _inline(c.nodes, c.localName == 'th' ? _base.copyWith(fontWeight: pw.FontWeight.bold) : _base),
+                  _align(c),
+                ),
+              ),
+          ],
+        ),
     ],
   );
 }

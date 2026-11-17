@@ -31,6 +31,7 @@ class _KioskSetupState extends State<KioskSetup> {
   };
   late final Future<List> _templates = StaffApi.i.call('GET', '/templates').then((r) => r as List);
   String _err = '';
+  bool _saving = false;
 
   Future<void> _save() async {
     c
@@ -63,10 +64,35 @@ class _KioskSetupState extends State<KioskSetup> {
         : '';
     if (problem.isNotEmpty) return setState(() => _err = problem);
     if (!c.packages.contains(c.defaultPackage)) c.defaultPackage = c.packages.first;
-    await saveKioskConfig(c);
-    if (!mounted) return;
-    setState(() => _err = '');
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved.')));
+    setState(() {
+      _saving = true;
+      _err = '';
+    });
+    try {
+      // The server issues this device's credential for exactly this agreement and these prices, so
+      // customers can keep signing after the admin signs out, until the setup is saved again.
+      final r =
+          await StaffApi.i.call(
+                'POST',
+                '/kiosk/token',
+                body: {
+                  'templateId': c.templateId,
+                  'currency': c.currency,
+                  'prices': {for (final p in c.packages) p: c.prices[p]},
+                },
+              )
+              as Map<String, dynamic>;
+      await DeviceApi.save('${r['token']}');
+      await saveKioskConfig(c);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Saved. This device is ready for customers.')));
+    } on ApiError catch (e) {
+      _err = e.code == 'NOT_FOUND' ? 'The server needs updating before devices can be set up.' : e.message;
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   /// White card with a heading and a plain-language line about what the section changes.
@@ -161,18 +187,22 @@ class _KioskSetupState extends State<KioskSetup> {
               _card(
                 'Customer screen',
                 widget.isAdmin
-                    ? 'Set up the options below and save. Then tap the button to show the customer screen and hand the device to the customer. The device stays signed in until you sign out.'
+                    ? 'Set up the options below and save. Then tap the button to show the customer screen and hand the device to the customer. The device keeps using this setup after you sign out or close the app, until an admin saves a new one.'
                     : 'Shows the customer screen with the setup your admin saved. Hand the device to the customer after tapping it.',
                 [
                   FilledButton.icon(
                     icon: const Icon(Icons.tablet_android),
-                    onPressed: kiosk.value.hasAgreement ? () => Navigator.popUntil(context, (r) => r.isFirst) : null,
+                    onPressed: kiosk.value.hasAgreement && DeviceApi.ready
+                        ? () => Navigator.popUntil(context, (r) => r.isFirst)
+                        : null,
                     label: const Text('Open customer screen'),
                   ),
-                  if (!kiosk.value.hasAgreement) ...[
+                  if (!kiosk.value.hasAgreement || !DeviceApi.ready) ...[
                     gap(10),
-                    const Text(
-                      'Choose an agreement below and save first.',
+                    Text(
+                      widget.isAdmin
+                          ? 'Choose an agreement below and save first.'
+                          : 'An admin needs to save the device setup first.',
                       style: TextStyle(fontSize: 14, color: Color(0xFFB3261E)),
                     ),
                   ],
@@ -330,7 +360,10 @@ class _KioskSetupState extends State<KioskSetup> {
                 ),
                 gap(20),
                 if (_err.isNotEmpty) ...[ErrorText(_err), gap()],
-                FilledButton(onPressed: _save, child: const Text('Save changes')),
+                FilledButton(
+                  onPressed: _saving ? null : _save,
+                  child: Busy(busy: _saving, label: 'Save changes'),
+                ),
                 gap(10),
                 const Text(
                   'Saved on this device only. The signing steps (code, reading, video, signature) are set by the server.',
