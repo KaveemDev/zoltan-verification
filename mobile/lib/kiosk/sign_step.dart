@@ -19,7 +19,7 @@ class SignStep extends StatefulWidget {
 
 class _SignStepState extends State<SignStep> {
   final _name = TextEditingController();
-  final _pad = SignatureController(penStrokeWidth: 3, penColor: navy);
+  final _pad = SignatureController(penStrokeWidth: 3, penColor: ink);
   final _ticked = List.filled(declarations.length, false);
   bool _agreed = false, _busy = false;
   String _err = '';

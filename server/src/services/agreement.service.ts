@@ -153,7 +153,9 @@ export async function attachOriginalPdf(
   pdf: Uint8Array,
   userId: string,
   ctx: RequestContext,
-): Promise<AgreementListItem> {
+  /** Tablet kiosk: no email; the link is returned once, in `signingToken`, for the customer to sign on the spot. */
+  opts: { kiosk?: boolean } = {},
+): Promise<AgreementListItem & { signingToken?: string }> {
   const a = await getAgreementOrThrow(id);
   if (a.originalPdfKey || a.status !== 'DRAFT') {
     throw new HttpError(409, 'This agreement already has its PDF.', 'PDF_EXISTS');
@@ -182,6 +184,7 @@ export async function attachOriginalPdf(
         originalPdfSha256,
         signingTokenHash: hash,
         tokenExpiresAt: new Date(Date.now() + env.TOKEN_TTL_HOURS * 3_600_000),
+        ...(opts.kiosk && { status: 'SENT' as const }),
       },
     });
     if (!count) throw new HttpError(409, 'This agreement already has its PDF.', 'PDF_EXISTS');
@@ -196,13 +199,17 @@ export async function attachOriginalPdf(
         templateVersion: a.templateVersion,
         originalPdfSha256,
         pages,
+        ...(opts.kiosk && { kiosk: true }),
       },
       tx,
     );
   });
 
-  await sendSigningLink(id, token, ctx);
-  return prisma.agreement.findUniqueOrThrow({ where: { id }, select: listSelect }).then(toListItem);
+  if (!opts.kiosk) await sendSigningLink(id, token, ctx);
+  const item = await prisma.agreement
+    .findUniqueOrThrow({ where: { id }, select: listSelect })
+    .then(toListItem);
+  return opts.kiosk ? { ...item, signingToken: token } : item;
 }
 
 /** Emails the signing link. Returns whether the provider accepted it; failures are logged as MESSAGE_FAILED. */

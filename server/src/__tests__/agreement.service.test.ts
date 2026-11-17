@@ -103,6 +103,16 @@ describe('attachOriginalPdf (step 2)', () => {
     expect(res.status).toBe('SENT');
   });
 
+  it('kiosk mode sends no email, marks SENT and returns the signing token once', async () => {
+    const { id } = await createAgreement(input, 'u1');
+    const res = await attachOriginalPdf(id, await realPdf(), 'u1', {}, { kiosk: true });
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(res.status).toBe('SENT');
+    expect(row(id).signingTokenHash).toBe(sha256Hex(res.signingToken!));
+    expect(JSON.stringify(db.agreement.rows)).not.toContain(res.signingToken!);
+    expect(types(id)).toEqual(['CREATED']);
+  });
+
   it('rejects anything that is not a real PDF, and stores nothing', async () => {
     const { id } = await createAgreement(input, 'u1');
     for (const bad of [new Uint8Array(), new TextEncoder().encode('%PDF-not really')]) {

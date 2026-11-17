@@ -12,7 +12,7 @@ class AdminLoginScreen extends StatefulWidget {
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _email = TextEditingController(), _pw = TextEditingController();
-  bool _busy = false;
+  bool _busy = false, _show = false;
   String _err = '';
 
   Future<void> _login() async {
@@ -41,7 +41,19 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           child: Panel(children: [
             TextField(controller: _email, keyboardType: TextInputType.emailAddress, autocorrect: false, decoration: const InputDecoration(labelText: 'Email')),
             gap(),
-            TextField(controller: _pw, obscureText: true, onSubmitted: (_) => _login(), decoration: const InputDecoration(labelText: 'Password')),
+            TextField(
+              controller: _pw,
+              obscureText: !_show,
+              onSubmitted: (_) => _login(),
+              decoration: InputDecoration(
+                labelText: 'Password',
+                suffixIcon: IconButton(
+                  tooltip: _show ? 'Hide password' : 'Show password',
+                  icon: Icon(_show ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                  onPressed: () => setState(() => _show = !_show),
+                ),
+              ),
+            ),
             gap(20),
             FilledButton(onPressed: _busy ? null : _login, child: Busy(busy: _busy, label: 'Sign in')),
             if (_err.isNotEmpty) ...[gap(), ErrorText(_err)],

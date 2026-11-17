@@ -84,7 +84,19 @@ describe('agreements routes', () => {
       new Uint8Array(pdf),
       'u1',
       expect.objectContaining({ ip: expect.any(String) }),
+      { kiosk: false },
     );
+  });
+
+  it('passes ?kiosk=1 through to attachOriginalPdf', async () => {
+    attachOriginalPdf.mockResolvedValue({ id: 'a1', status: 'SENT', signingToken: 't' } as never);
+    await request(app)
+      .post('/api/v1/agreements/a1/original-pdf?kiosk=1')
+      .set(auth)
+      .set('content-type', 'application/pdf')
+      .send(Buffer.from('%PDF-1.4 x'))
+      .expect(200);
+    expect((attachOriginalPdf.mock.calls.at(-1) as unknown[])[4]).toEqual({ kiosk: true });
   });
 
   it('parses list query params', async () => {

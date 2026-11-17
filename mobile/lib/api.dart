@@ -95,14 +95,19 @@ class StaffApi {
     }
   }
 
-  Future<dynamic> call(String method, String path, {Object? body}) {
+  /// Forget the session (it expired or the server rejected it).
+  void expire() => _jar.clear();
+
+  Future<dynamic> call(String method, String path, {Object? body, List<int>? raw}) {
     final h = {
       if (body != null) 'content-type': 'application/json',
+      if (raw != null) 'content-type': 'application/pdf',
       if (_jar.isNotEmpty) 'cookie': _jar.entries.map((e) => '${e.key}=${e.value}').join('; '),
       if (method != 'GET' && _jar['csrf'] != null) 'x-csrf-token': Uri.decodeComponent(_jar['csrf']!),
     };
     final req = http.Request(method, Uri.parse('${Config.api}$path'))..headers.addAll(h);
     if (body != null) req.body = jsonEncode(body);
+    if (raw != null) req.bodyBytes = raw;
     return _send(() async {
       final r = await http.Response.fromStream(await req.send());
       _store(r);
@@ -111,9 +116,18 @@ class StaffApi {
   }
 
   Future<Map<String, dynamic>> login(String email, String password) async {
+    // A failed attempt (e.g. a customer poking at the staff button) must not end a running kiosk session.
+    final old = Map.of(_jar);
     _jar.clear();
-    return await call('POST', '/auth/login', body: {'email': email, 'password': password})
-        as Map<String, dynamic>;
+    try {
+      return await call('POST', '/auth/login', body: {'email': email, 'password': password})
+          as Map<String, dynamic>;
+    } catch (_) {
+      _jar
+        ..clear()
+        ..addAll(old);
+      rethrow;
+    }
   }
 
   Future<void> logout() async {

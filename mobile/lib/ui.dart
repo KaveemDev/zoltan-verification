@@ -1,38 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-const navy = Color(0xFF0B2545);
-const teal = Color(0xFF13A89E);
+import 'config.dart';
+
+// Zoltan Visa web brand: pink accent, slate neutrals, Plus Jakarta Sans headings, Inter body.
+const ink = Color(0xFF0F172A);
+const line = Color(0xFFE2E8F0);
+Color get brand => Color(kiosk.value.primary);
 
 ThemeData buildTheme() {
-  final scheme = ColorScheme.fromSeed(seedColor: navy, primary: navy, secondary: teal);
+  final scheme = ColorScheme.fromSeed(seedColor: brand, primary: brand, surface: Colors.white);
+  final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(12));
+  const btnText = TextStyle(fontSize: 18, fontWeight: FontWeight.w600);
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: const Color(0xFFF3F6FA),
+    textTheme: GoogleFonts.interTextTheme(),
+    scaffoldBackgroundColor: const Color(0xFFF8FAFC),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
     ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(60),
-        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size.fromHeight(60),
-        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    ),
+    filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(60), textStyle: btnText, shape: shape)),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(60), textStyle: btnText, shape: shape, foregroundColor: brand, side: BorderSide(color: brand))),
   );
 }
 
-/// Page frame: navy header, content centred in a readable column (tablet first, fine on phones).
+/// Page frame: white header with the logo, content centred in a readable column (tablet first, fine on phones).
 class Shell extends StatelessWidget {
   const Shell({super.key, required this.child, this.title, this.actions = const [], this.leading, this.maxWidth = 760});
   final Widget child;
@@ -44,11 +41,21 @@ class Shell extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
-          backgroundColor: navy,
-          foregroundColor: Colors.white,
+          backgroundColor: Colors.white,
+          foregroundColor: ink,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          shape: const Border(bottom: BorderSide(color: line)),
           leading: leading,
           automaticallyImplyLeading: false,
-          title: Text(title ?? 'Zoltan Global', style: const TextStyle(fontWeight: FontWeight.w600)),
+          titleSpacing: leading == null ? 20 : 0,
+          title: Row(children: [
+            Image.asset('assets/logo.png', height: 34),
+            if (title != null) ...[
+              const SizedBox(width: 14),
+              Flexible(child: Text(title!, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black54))),
+            ],
+          ]),
           actions: actions,
         ),
         body: SafeArea(
@@ -90,7 +97,7 @@ class H1 extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) =>
-      Text(text, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: navy));
+      Text(text, style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w800, color: ink));
 }
 
 class Body extends StatelessWidget {
@@ -140,7 +147,7 @@ class StepBar extends StatelessWidget {
                     height: 6,
                     margin: const EdgeInsets.symmetric(horizontal: 3),
                     decoration: BoxDecoration(
-                      color: i <= index ? teal : const Color(0xFFD5DDE8),
+                      color: i <= index ? brand : const Color(0xFFE2E8F0),
                       borderRadius: BorderRadius.circular(3),
                     ),
                   ),
@@ -149,7 +156,7 @@ class StepBar extends StatelessWidget {
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: i == index ? FontWeight.w700 : FontWeight.w400,
-                          color: i == index ? navy : Colors.black45)),
+                          color: i == index ? ink : Colors.black45)),
                 ]),
               ),
           ],

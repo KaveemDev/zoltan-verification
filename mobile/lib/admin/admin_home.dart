@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../ui.dart';
+import 'kiosk_setup.dart';
 
 const _statusColor = {
   'SIGNED': Color(0xFF1B8A5A),
@@ -26,22 +27,27 @@ class AdminHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
-        length: isAdmin ? 3 : 2,
+        length: isAdmin ? 4 : 3,
         child: Scaffold(
           appBar: AppBar(
-            backgroundColor: navy,
-            foregroundColor: Colors.white,
+            backgroundColor: Colors.white,
+            foregroundColor: ink,
+            elevation: 0,
             automaticallyImplyLeading: false,
-            title: Text('${me['name']} · ${me['role']}'),
-            actions: [TextButton.icon(onPressed: () => _out(context), icon: const Icon(Icons.logout, color: Colors.white), label: const Text('Sign out', style: TextStyle(color: Colors.white)))],
+            title: Row(children: [
+              Image.asset('assets/logo.png', height: 32),
+              const SizedBox(width: 14),
+              Flexible(child: Text('${me['name']} \u00B7 ${me['role']}', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, color: Colors.black54))),
+            ]),
+            actions: [TextButton.icon(onPressed: () => _out(context), icon: const Icon(Icons.logout), label: const Text('Sign out'))],
             bottom: TabBar(
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white60,
-              indicatorColor: teal,
-              tabs: [const Tab(text: 'Agreements'), if (isAdmin) const Tab(text: 'Templates'), const Tab(text: 'Settings')],
+              labelColor: brand,
+              unselectedLabelColor: Colors.black54,
+              indicatorColor: brand,
+              tabs: [const Tab(text: 'Kiosk'), const Tab(text: 'Agreements'), if (isAdmin) const Tab(text: 'Templates'), const Tab(text: 'Settings')],
             ),
           ),
-          body: TabBarView(children: [const AgreementsTab(), if (isAdmin) const TemplatesTab(), const SettingsTab()]),
+          body: TabBarView(children: [KioskSetup(isAdmin: isAdmin), const AgreementsTab(), if (isAdmin) const TemplatesTab(), const SettingsTab()]),
         ),
       );
 }
@@ -185,7 +191,7 @@ class _AgreementDetailState extends State<AgreementDetail> {
                 ),
                 gap(20),
               ],
-              const Text('Activity', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: navy)),
+              const Text('Activity', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: ink)),
               for (final e in (a['events'] as List? ?? []))
                 ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text('${(e as Map)['type']}'.replaceAll('_', ' ')), subtitle: Text('${e['createdAt']}')),
             ]),

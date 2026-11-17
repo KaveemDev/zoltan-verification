@@ -165,7 +165,7 @@ class _VideoStepState extends State<VideoStep> {
           ),
           gap(),
           const Body('Please say:', muted: true),
-          Text('“${widget.script}”', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: navy)),
+          Text('“${widget.script}”', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: ink)),
         ],
         gap(20),
         switch (_phase) {

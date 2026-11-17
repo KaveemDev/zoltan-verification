@@ -45,7 +45,11 @@ agreementsRouter.post(
   express.raw({ type: 'application/pdf', limit: '10mb' }),
   async (req, res) => {
     const pdf = Buffer.isBuffer(req.body) ? new Uint8Array(req.body) : new Uint8Array();
-    res.json(await attachOriginalPdf(id(req.params), pdf, req.user!.sub, requestContext(req)));
+    res.json(
+      await attachOriginalPdf(id(req.params), pdf, req.user!.sub, requestContext(req), {
+        kiosk: req.query.kiosk === '1',
+      }),
+    );
   },
 );
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../config.dart';
 import '../legal.dart';
 import '../ui.dart';
 import 'read_step.dart';
@@ -17,7 +18,7 @@ const _errors = {
   'RATE_LIMITED': ('Please wait a moment', 'There were too many attempts. Please try again in a few minutes.'),
 };
 
-enum Step { landing, verify, read, consent, video, sign, done }
+enum Step { verify, read, consent, video, sign, done }
 
 class FlowScreen extends StatefulWidget {
   const FlowScreen({super.key, required this.token});
@@ -33,7 +34,7 @@ class _FlowScreenState extends State<FlowScreen> {
   Map<String, dynamic>? result;
   String? fatal;
   String? notice;
-  Step step = Step.landing;
+  Step step = Step.verify;
 
   @override
   void initState() {
@@ -114,7 +115,6 @@ class _FlowScreenState extends State<FlowScreen> {
       body = const Center(child: CircularProgressIndicator());
     } else {
       body = switch (step) {
-        Step.landing => _Landing(info!, business, () => setState(() => step = Step.verify)),
         Step.verify => OtpStep(api: api, info: info!, notice: notice, onVerified: () {
             notice = null;
             _loadDoc();
@@ -133,8 +133,10 @@ class _FlowScreenState extends State<FlowScreen> {
         Step.video => VideoStep(
             api: api,
             authed: authed,
-            script:
-                'I, ${info!['customerName']}, agree to proceed with my ${packageLabel[info!['packageType']] ?? ''} application with $business.',
+            script: kiosk.value.videoScript
+                .replaceAll('{name}', '${info!['customerName']}')
+                .replaceAll('{package}', packageLabel['${info!['packageType']}'] ?? '')
+                .replaceAll('{business}', business),
             onDone: () => setState(() => step = Step.sign)),
         Step.sign => SignStep(
             api: api,
@@ -148,7 +150,7 @@ class _FlowScreenState extends State<FlowScreen> {
     }
     final idx = const {Step.verify: 0, Step.read: 1, Step.consent: 2, Step.video: 3, Step.sign: 4}[step];
     return PopScope(
-      canPop: step == Step.landing || step == Step.done || fatal != null,
+      canPop: step == Step.done || fatal != null,
       onPopInvokedWithResult: (didPop, _) => didPop ? null : _exit(),
       child: Shell(
         title: business,
@@ -164,26 +166,6 @@ class _FlowScreenState extends State<FlowScreen> {
       ),
     );
   }
-}
-
-class _Landing extends StatelessWidget {
-  const _Landing(this.info, this.business, this.onStart);
-  final Map<String, dynamic> info;
-  final String business;
-  final VoidCallback onStart;
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Panel(children: [
-          H1('Hi ${info['customerName']}'),
-          gap(),
-          Body('$business has prepared an agreement for your ${packageLabel[info['packageType']] ?? ''} '
-              'application for ${info['destination']}.'),
-          gap(8),
-          const Body('Confirm it’s you with a one-time code, read the agreement, record a short video and sign.'),
-          gap(24),
-          FilledButton(onPressed: onStart, child: const Text('Continue')),
-        ]),
-      );
 }
 
 class OtpStep extends StatefulWidget {
@@ -359,7 +341,7 @@ class _DoneState extends State<_Done> {
   void initState() {
     super.initState();
     // Reset for the next customer so nothing stays on screen.
-    _t = Timer(const Duration(seconds: 30), () => mounted ? Navigator.popUntil(context, (r) => r.isFirst) : null);
+    _t = Timer(Duration(seconds: kiosk.value.doneSeconds), () => mounted ? Navigator.popUntil(context, (r) => r.isFirst) : null);
   }
 
   @override
@@ -371,7 +353,7 @@ class _DoneState extends State<_Done> {
   @override
   Widget build(BuildContext context) => Center(
         child: Panel(children: [
-          const Icon(Icons.check_circle, size: 72, color: teal),
+          Icon(Icons.check_circle, size: 72, color: brand),
           gap(),
           const H1('All done, thank you!'),
           gap(),
