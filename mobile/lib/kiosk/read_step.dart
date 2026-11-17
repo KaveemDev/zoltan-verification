@@ -40,45 +40,59 @@ class _ReadStepState extends State<ReadStep> {
   @override
   Widget build(BuildContext context) {
     final readAll = _total > 0 && _seen >= _total;
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-        child: Row(children: [
-          const Expanded(child: H1('Read your agreement')),
-          Text(_total == 0 ? '' : 'Page $_seen of $_total', style: const TextStyle(fontSize: 16, color: Colors.black54)),
-        ]),
-      ),
-      Expanded(
-        child: Container(
-          margin: const EdgeInsets.all(20),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-          child: PdfViewer.uri(
-            Uri.parse(widget.doc['pdfUrl']),
-            params: PdfViewerParams(
-              onViewerReady: (d, _) => setState(() => _total = d.pages.length),
-              onPageChanged: (p) {
-                if (p != null && p > _seen) setState(() => _seen = p);
-              },
-            ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Row(
+            children: [
+              const Expanded(child: H1('Read your agreement')),
+              Text(
+                _total == 0 ? '' : 'Page $_seen of $_total',
+                style: const TextStyle(fontSize: 16, color: Colors.black54),
+              ),
+            ],
           ),
         ),
-      ),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Column(children: [
-          if (!readAll) const Body('Scroll to the end of the agreement to continue.', muted: true),
-          if (_err.isNotEmpty) ErrorText(_err),
-          CheckboxListTile(
-            value: _agree,
-            onChanged: readAll ? (v) => setState(() => _agree = v ?? false) : null,
-            title: const Text(agreementConsent),
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: EdgeInsets.zero,
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.all(20),
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+            child: widget.doc['pdfUrl'] is! String
+                ? const Center(child: ErrorText('We could not load the agreement. Please ask our staff for help.'))
+                : PdfViewer.uri(
+                    Uri.parse(widget.doc['pdfUrl']),
+                    params: PdfViewerParams(
+                      onViewerReady: (d, _) => setState(() => _total = d.pages.length),
+                      onPageChanged: (p) {
+                        if (p != null && p > _seen) setState(() => _seen = p);
+                      },
+                    ),
+                  ),
           ),
-          FilledButton(onPressed: readAll && _agree && !_busy ? _go : null, child: Busy(busy: _busy, label: 'Continue')),
-        ]),
-      ),
-    ]);
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            children: [
+              if (!readAll) const Body('Scroll to the end of the agreement to continue.', muted: true),
+              if (_err.isNotEmpty) ErrorText(_err),
+              CheckboxListTile(
+                value: _agree,
+                onChanged: readAll ? (v) => setState(() => _agree = v ?? false) : null,
+                title: const Text(agreementConsent),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+              ),
+              FilledButton(
+                onPressed: readAll && _agree && !_busy ? _go : null,
+                child: Busy(busy: _busy, label: 'Continue'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

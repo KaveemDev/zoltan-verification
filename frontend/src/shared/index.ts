@@ -146,6 +146,7 @@ export const SignErrorCode = z.enum([
   'LEGAL_TEXT_CHANGED',
   'RATE_LIMITED',
   'VIDEO_MISMATCH',
+  'OTP_SEND_FAILED',
 ]);
 export type SignErrorCode = z.infer<typeof SignErrorCode>;
 

@@ -63,7 +63,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
       final pdf = await buildAgreementPdf(draft['html'], draft['footer']);
       setState(() => _status = 'Almost ready…');
       final r = await api.call('POST', '/agreements/${draft['id']}/original-pdf?kiosk=1', raw: pdf) as Map<String, dynamic>;
-      // A server without the tablet change emails the link instead and returns no token.
+      // An old server ignores ?kiosk=1, tries to email the link instead and returns no token.
       final token = r['signingToken'];
       if (token is! String) throw ApiError(0, 'SERVER_OUTDATED', '');
       if (!mounted) return;
@@ -74,7 +74,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
         'UNAUTHENTICATED' => 'This tablet needs a staff sign-in. Please ask our staff for help.',
         'TEMPLATE_NOT_FOUND' => 'The agreement for this tablet is no longer available. Please ask our staff for help.',
         'SERVER_OUTDATED' =>
-          'We emailed you a link to sign your agreement instead. Please ask our staff for help. (Staff: the server needs updating for tablet signing.)',
+          'This tablet can’t start signing right now. Please ask our staff for help. (Staff: the server is running an old version without tablet signing.)',
         _ => e.message,
       };
     } catch (_) {

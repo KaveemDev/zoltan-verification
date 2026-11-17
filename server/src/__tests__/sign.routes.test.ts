@@ -9,6 +9,7 @@ const db = createFakePrisma();
 vi.mock('../db.js', () => ({ prisma: db }));
 
 const sent: { channel: 'sms' | 'email'; to: string; code: string }[] = [];
+let emailDown = false;
 vi.mock('../messaging/index.js', () => ({
   getSms: () => ({
     name: 'test-sms',
@@ -21,6 +22,7 @@ vi.mock('../messaging/index.js', () => ({
     name: 'test-email',
     // The OTP email subject starts with the code.
     send: async (m: { to: { email: string }; subject: string }) => {
+      if (emailDown) throw new Error('ZeptoMail 422: TM_TEST rejected');
       sent.push({ channel: 'email', to: m.to.email, code: m.subject.slice(0, 6) });
       return { messageId: 'email-1' };
     },
@@ -191,6 +193,19 @@ describe('link validation', () => {
 });
 
 describe('OTP', () => {
+  it('a failed code email gives a clear 502 and does not block an immediate retry', async () => {
+    row().customerPhone = '+447700900123';
+    emailDown = true;
+    try {
+      const res = await request(app).post(`${base()}/otp/send`).expect(502);
+      expect(res.body.error).toBe('OTP_SEND_FAILED');
+      expect(events().some((e) => e.type === 'OTP_SENT')).toBe(false);
+    } finally {
+      emailDown = false;
+    }
+    await request(app).post(`${base()}/otp/send`).expect(200);
+  });
+
   it('emails the code for numbers outside SMS_COUNTRY_CODES (+91), and records the channel', async () => {
     row().customerPhone = '+447700900123';
     const info = await request(app).get(base()).expect(200);

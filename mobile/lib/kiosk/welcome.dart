@@ -46,6 +46,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             label: const Text('Staff sign in'),
           ),
         ),
+        // Bump with pubspec `version:` so staff can tell which build a tablet runs.
+        const Padding(
+          padding: EdgeInsets.only(bottom: 8),
+          child: Text('Version 1.0.1', style: TextStyle(fontSize: 12, color: Colors.black38)),
+        ),
       ]),
     );
   }

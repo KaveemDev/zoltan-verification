@@ -47,6 +47,34 @@ describe('ZeptoMailProvider', () => {
     expect(err.message).toBe('ZeptoMail 401: TM_3201 Invalid API Token');
     expect(err.message).not.toMatch(/SECRET|secret-key/);
   });
+
+  it('includes ZeptoMail detail codes in errors', async () => {
+    const f = respond(401, {
+      error: {
+        code: 'TM_4001',
+        message: 'Access Denied',
+        details: [{ code: 'SERR_157', message: 'Invalid API Token found' }],
+      },
+    });
+    const err = (await make(f as never)
+      .send(msg)
+      .catch((e) => e)) as Error;
+    expect(err.message).toBe(
+      'ZeptoMail 401: TM_4001 Access Denied SERR_157 Invalid API Token found',
+    );
+  });
+
+  it('checkKey sends an empty request: 400 means the key is accepted, 401 rejected', async () => {
+    const good = respond(400, { error: { code: 'TM_3301', message: 'Bad Syntax' } });
+    expect(await make(good as never).checkKey()).toEqual({
+      ok: true,
+      detail: '400 TM_3301 Bad Syntax',
+    });
+    expect(sentBody(good)).toEqual({});
+    expect(headers(good).authorization).toBe('Zoho-enczapikey secret-key');
+    const bad = respond(401, { error: { code: 'TM_4001', message: 'Access Denied' } });
+    expect((await make(bad as never).checkKey()).ok).toBe(false);
+  });
 });
 
 describe('Msg91Provider', () => {

@@ -169,13 +169,33 @@ export async function sendOtp(a: Agreement, ctx: RequestContext): Promise<OtpSen
 
   const target = codeTarget(a);
   const provider = target.channel === 'sms' ? getSms() : getEmail();
-  const { messageId } =
-    target.channel === 'sms'
-      ? await getSms().sendOtp(target.to, code)
-      : await getEmail().send({
-          to: { email: target.to, name: a.customerName },
-          ...otpEmail({ business: env.BUSINESS_NAME, code, support: env.SUPPORT_EMAIL }),
-        });
+  let messageId: string;
+  try {
+    ({ messageId } =
+      target.channel === 'sms'
+        ? await getSms().sendOtp(target.to, code)
+        : await getEmail().send({
+            to: { email: target.to, name: a.customerName },
+            ...otpEmail({ business: env.BUSINESS_NAME, code, support: env.SUPPORT_EMAIL }),
+          }));
+  } catch (err) {
+    // The code never reached anyone: drop it so the resend cooldown doesn't block a retry.
+    await prisma.otpChallenge.deleteMany({ where: { id: challenge.id } });
+    logger.error(
+      {
+        err: (err as Error).message,
+        agreementId: a.id,
+        channel: target.channel,
+        provider: provider.name,
+      },
+      'sending OTP failed',
+    );
+    throw signError(
+      502,
+      'OTP_SEND_FAILED',
+      "We couldn't send your code right now. Please try again in a minute, or ask our staff for help.",
+    );
+  }
   await appendAuditEvent(a.id, 'OTP_SENT', ctx, {
     challengeId: challenge.id,
     channel: target.channel,
