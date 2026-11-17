@@ -61,7 +61,7 @@ class AdminHome extends StatelessWidget {
           isScrollable: MediaQuery.sizeOf(context).width < 600,
           tabAlignment: MediaQuery.sizeOf(context).width < 600 ? TabAlignment.start : null,
           tabs: [
-            const Tab(text: 'Tablet setup'),
+            const Tab(text: 'Device setup'),
             const Tab(text: 'Agreements'),
             if (isAdmin) const Tab(text: 'Templates'),
             const Tab(text: 'Settings'),
@@ -354,7 +354,7 @@ class _SettingsTabState extends State<SettingsTab> {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(20),
     children: [
-      const H1('Tablet settings'),
+      const H1('Device settings'),
       gap(),
       TextField(
         controller: _url,

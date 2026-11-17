@@ -3,14 +3,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Everything an admin can change for this tablet. Stored on the device, so each tablet keeps
+/// Everything an admin can change for this device. Stored on the device, so each device keeps
 /// its own setup. The server still enforces the signing steps (code, read, video, sign).
 class KioskConfig {
   KioskConfig({
     this.templateId = '',
     this.templateName = '',
     this.welcomeTitle = 'Welcome to Zoltan Visa',
-    this.welcomeMessage = 'Fill in your details, then read and sign your agreement securely on this tablet. It takes about 5 minutes.',
+    this.welcomeMessage = 'Fill in your details, then read and sign your agreement securely on this device. It takes about 5 minutes.',
     this.startLabel = 'Get started',
     this.primary = 0xFFD6194A,
     this.phonePrefix = '+91',
@@ -59,7 +59,8 @@ class KioskConfig {
       templateId: j['templateId'] ?? d.templateId,
       templateName: j['templateName'] ?? d.templateName,
       welcomeTitle: j['welcomeTitle'] ?? d.welcomeTitle,
-      welcomeMessage: j['welcomeMessage'] ?? d.welcomeMessage,
+      // Devices that saved the old default wording ("…on this tablet…") get the new one.
+      welcomeMessage: (j['welcomeMessage'] as String?)?.replaceAll('on this tablet', 'on this device') ?? d.welcomeMessage,
       startLabel: j['startLabel'] ?? d.startLabel,
       primary: j['primary'] ?? d.primary,
       phonePrefix: j['phonePrefix'] ?? d.phonePrefix,

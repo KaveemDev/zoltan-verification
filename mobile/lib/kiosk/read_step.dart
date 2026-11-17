@@ -6,8 +6,9 @@ import '../legal.dart';
 import '../ui.dart';
 
 class ReadStep extends StatefulWidget {
-  const ReadStep({super.key, required this.doc, required this.onDone});
+  const ReadStep({super.key, required this.doc, required this.business, required this.onDone});
   final Map<String, dynamic> doc;
+  final String business;
   final Future<void> Function(Map<String, dynamic>) onDone;
   @override
   State<ReadStep> createState() => _ReadStepState();
@@ -44,12 +45,36 @@ class _ReadStepState extends State<ReadStep> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Expanded(child: H1('Read your agreement')),
-              Text(
-                _total == 0 ? '' : 'Page $_seen of $_total',
-                style: const TextStyle(fontSize: 16, color: Colors.black54),
+              const H1('Read your agreement'),
+              gap(12),
+              // "In short" box, as on the website.
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: brand.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'In short',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ink),
+                    ),
+                    for (final s in [
+                      'You are asking ${widget.business} to help with your '
+                          '${packageLabel['${widget.doc['packageType']}'] ?? ''} application for ${widget.doc['destination']}.',
+                      'Visa approval is decided by the authorities and is not guaranteed.',
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text('•  $s', style: const TextStyle(fontSize: 16, height: 1.4, color: ink)),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -76,7 +101,10 @@ class _ReadStepState extends State<ReadStep> {
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           child: Column(
             children: [
-              if (!readAll) const Body('Scroll to the end of the agreement to continue.', muted: true),
+              Body(
+                readAll ? 'Read $_seen of $_total pages' : 'Scroll to the end of the agreement to continue.',
+                muted: true,
+              ),
               if (_err.isNotEmpty) ErrorText(_err),
               CheckboxListTile(
                 value: _agree,

@@ -16,42 +16,51 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     final c = kiosk.value;
-    // Ready = staff have signed in on this tablet and chosen an agreement.
+    // Ready = staff have signed in on this device and chosen an agreement.
     final ready = StaffApi.i.signedIn && c.hasAgreement;
     return Shell(
-      child: Column(children: [
-        Expanded(
-          child: Center(
-            child: Panel(children: [
-              H1(ready ? c.welcomeTitle : 'This tablet is not ready yet'),
-              gap(12),
-              Body(ready ? c.welcomeMessage : 'A staff member needs to sign in and choose the agreement for this tablet.'),
-              gap(28),
-              if (ready)
-                FilledButton(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DetailsScreen())),
-                  child: Text(c.startLabel),
-                ),
-            ]),
+      child: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: Panel(
+                children: [
+                  H1(ready ? c.welcomeTitle : 'This device is not ready yet'),
+                  gap(12),
+                  Body(
+                    ready
+                        ? c.welcomeMessage
+                        : 'A staff member needs to sign in and choose the agreement for this device.',
+                  ),
+                  gap(28),
+                  if (ready)
+                    FilledButton(
+                      onPressed: () =>
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => const DetailsScreen())),
+                      child: Text(c.startLabel),
+                    ),
+                ],
+              ),
+            ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: TextButton.icon(
-            onPressed: () async {
-              await Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminLoginScreen()));
-              if (mounted) setState(() {});
-            },
-            icon: const Icon(Icons.lock_outline, size: 18),
-            label: const Text('Staff sign in'),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: TextButton.icon(
+              onPressed: () async {
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminLoginScreen()));
+                if (mounted) setState(() {});
+              },
+              icon: const Icon(Icons.lock_outline, size: 18),
+              label: const Text('Staff sign in'),
+            ),
           ),
-        ),
-        // Bump with pubspec `version:` so staff can tell which build a tablet runs.
-        const Padding(
-          padding: EdgeInsets.only(bottom: 8),
-          child: Text('Version 1.0.1', style: TextStyle(fontSize: 12, color: Colors.black38)),
-        ),
-      ]),
+          // Bump with pubspec `version:` so staff can tell which build a device runs.
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('Version 1.0.1', style: TextStyle(fontSize: 12, color: Colors.black38)),
+          ),
+        ],
+      ),
     );
   }
 }

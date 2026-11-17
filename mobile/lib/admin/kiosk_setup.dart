@@ -7,7 +7,7 @@ import '../ui.dart';
 
 const _swatches = [0xFFD6194A, 0xFFFF3366, 0xFFB8123D, 0xFF0B2545, 0xFF0F766E, 0xFF4338CA, 0xFF334155];
 
-/// "Tablet setup" tab: what the customer sees on this tablet (editable by admins only).
+/// "Device setup" tab: what the customer sees on this device (editable by admins only).
 class KioskSetup extends StatefulWidget {
   const KioskSetup({super.key, required this.isAdmin});
   final bool isAdmin;
@@ -161,8 +161,8 @@ class _KioskSetupState extends State<KioskSetup> {
               _card(
                 'Customer screen',
                 widget.isAdmin
-                    ? 'Set up the options below and save. Then tap the button to show the customer screen and hand the tablet to the customer. The tablet stays signed in until you sign out.'
-                    : 'Shows the customer screen with the setup your admin saved. Hand the tablet to the customer after tapping it.',
+                    ? 'Set up the options below and save. Then tap the button to show the customer screen and hand the device to the customer. The device stays signed in until you sign out.'
+                    : 'Shows the customer screen with the setup your admin saved. Hand the device to the customer after tapping it.',
                 [
                   FilledButton.icon(
                     icon: const Icon(Icons.tablet_android),
@@ -179,7 +179,7 @@ class _KioskSetupState extends State<KioskSetup> {
                 ],
               ),
               if (widget.isAdmin) ...[
-                _card('1. Agreement', 'The agreement every customer reads and signs on this tablet.', [
+                _card('1. Agreement', 'The agreement every customer reads and signs on this device.', [
                   FutureBuilder<List>(
                     future: _templates,
                     builder: (_, s) {
@@ -260,7 +260,7 @@ class _KioskSetupState extends State<KioskSetup> {
                       c.askDestination ? 'Pre-filled destination' : 'Destination',
                       help: c.askDestination
                           ? 'Optional. Customers can change it.'
-                          : 'Used for every customer on this tablet.',
+                          : 'Used for every customer on this device.',
                     ),
                     _switch(
                       'Ask for notes',
@@ -272,7 +272,7 @@ class _KioskSetupState extends State<KioskSetup> {
                     _field(_prefix, 'Phone country code', hint: '+91', help: 'Added in front of the mobile number.'),
                   ],
                 ),
-                _card('4. Welcome screen', 'The first screen customers see when they pick up the tablet.', [
+                _card('4. Welcome screen', 'The first screen customers see when they pick up the device.', [
                   _field(_title, 'Heading'),
                   _field(_msg, 'Message', lines: 3),
                   _field(_start, 'Button text', hint: 'Get started'),
@@ -311,7 +311,7 @@ class _KioskSetupState extends State<KioskSetup> {
                 ]),
                 _card(
                   '6. Video and finishing',
-                  'What customers say on camera, and when the tablet clears itself for the next person.',
+                  'What customers say on camera, and when the device clears itself for the next person.',
                   [
                     _field(
                       _script,
@@ -323,7 +323,7 @@ class _KioskSetupState extends State<KioskSetup> {
                       _done,
                       'Clear the screen after (seconds)',
                       hint: '30',
-                      help: 'After signing, the tablet returns to the welcome screen.',
+                      help: 'After signing, the device returns to the welcome screen.',
                       type: TextInputType.number,
                     ),
                   ],
@@ -333,7 +333,7 @@ class _KioskSetupState extends State<KioskSetup> {
                 FilledButton(onPressed: _save, child: const Text('Save changes')),
                 gap(10),
                 const Text(
-                  'Saved on this tablet only. The signing steps (code, reading, video, signature) are set by the server.',
+                  'Saved on this device only. The signing steps (code, reading, video, signature) are set by the server.',
                   style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
                 ),
               ],

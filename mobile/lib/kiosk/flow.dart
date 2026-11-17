@@ -73,13 +73,15 @@ class _FlowScreenState extends State<FlowScreen> {
   Future<void> _loadDoc() async {
     doc = await authed(() async => await api.call('/document', auth: true) as Map<String, dynamic>);
     final p = doc!['progress'] as Map<String, dynamic>;
-    setState(() => step = p['viewed'] != true
-        ? Step.read
-        : p['recordingConsented'] != true
-            ? Step.consent
-            : p['videoRecorded'] != true
-                ? Step.video
-                : Step.sign);
+    setState(
+      () => step = p['viewed'] != true
+          ? Step.read
+          : p['recordingConsented'] != true
+          ? Step.consent
+          : p['videoRecorded'] != true
+          ? Step.video
+          : Step.sign,
+    );
   }
 
   Future<void> _exit() async {
@@ -87,7 +89,7 @@ class _FlowScreenState extends State<FlowScreen> {
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Leave and start over?'),
-        content: const Text('Your progress on this tablet will be cleared.'),
+        content: const Text('Your progress on this device will be cleared.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Stay')),
           TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Leave')),
@@ -99,52 +101,73 @@ class _FlowScreenState extends State<FlowScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final business = '${info?['businessName'] ?? 'Zoltan Global'}';
+    final business = '${info?['businessName'] ?? 'Zoltan Visa'}';
     Widget body;
     if (fatal != null) {
       final e = _errors[fatal];
-      body = Panel(children: [
-        H1(e?.$1 ?? 'Something went wrong'),
-        gap(),
-        Body(e?.$2 ?? 'Please check the internet connection and try again.'),
-        gap(24),
-        if (e == null) FilledButton(onPressed: _load, child: const Text('Try again')),
-        if (e != null) FilledButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text('Back to start')),
-      ]);
+      body = Panel(
+        children: [
+          H1(e?.$1 ?? 'Something went wrong'),
+          gap(),
+          Body(e?.$2 ?? 'Please check the internet connection and try again.'),
+          gap(24),
+          if (e == null) FilledButton(onPressed: _load, child: const Text('Try again')),
+          if (e != null)
+            FilledButton(
+              onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
+              child: const Text('Back to start'),
+            ),
+        ],
+      );
     } else if (info == null) {
       body = const Center(child: CircularProgressIndicator());
     } else {
       body = switch (step) {
-        Step.verify => OtpStep(api: api, info: info!, notice: notice, onVerified: () {
+        Step.verify => OtpStep(
+          api: api,
+          info: info!,
+          notice: notice,
+          onVerified: () {
             notice = null;
             _loadDoc();
-          }),
+          },
+        ),
         Step.read => ReadStep(
-            doc: doc!,
-            onDone: (v) async {
-              await authed(() => api.call('/events', post: true, auth: true, body: {'type': 'AGREEMENT_VIEWED', ...v}));
-              setState(() => step = Step.consent);
-            }),
-        Step.consent => _Consent(business, () async {
-            await authed(() => api.call('/events',
-                post: true, auth: true, body: {'type': 'RECORDING_CONSENT_GIVEN', 'legalTextVersion': legalTextVersion}));
-            setState(() => step = Step.video);
-          }),
+          doc: doc!,
+          business: business,
+          onDone: (v) async {
+            await authed(() => api.call('/events', post: true, auth: true, body: {'type': 'AGREEMENT_VIEWED', ...v}));
+            setState(() => step = Step.consent);
+          },
+        ),
+        Step.consent => _Consent(() async {
+          await authed(
+            () => api.call(
+              '/events',
+              post: true,
+              auth: true,
+              body: {'type': 'RECORDING_CONSENT_GIVEN', 'legalTextVersion': legalTextVersion},
+            ),
+          );
+          setState(() => step = Step.video);
+        }),
         Step.video => VideoStep(
-            api: api,
-            authed: authed,
-            script: kiosk.value.videoScript
-                .replaceAll('{name}', '${info!['customerName']}')
-                .replaceAll('{package}', packageLabel['${info!['packageType']}'] ?? '')
-                .replaceAll('{business}', business),
-            onDone: () => setState(() => step = Step.sign)),
+          api: api,
+          authed: authed,
+          script: kiosk.value.videoScript
+              .replaceAll('{name}', '${info!['customerName']}')
+              .replaceAll('{package}', packageLabel['${info!['packageType']}'] ?? '')
+              .replaceAll('{business}', business),
+          onDone: () => setState(() => step = Step.sign),
+        ),
         Step.sign => SignStep(
-            api: api,
-            authed: authed,
-            onDone: (r) => setState(() {
-                  result = r;
-                  step = Step.done;
-                })),
+          api: api,
+          authed: authed,
+          onDone: (r) => setState(() {
+            result = r;
+            step = Step.done;
+          }),
+        ),
         Step.done => _Done(business, result!),
       };
     }
@@ -155,14 +178,13 @@ class _FlowScreenState extends State<FlowScreen> {
       child: Shell(
         title: business,
         maxWidth: step == Step.read ? 1000 : 760,
-        actions: [
-          if (step != Step.done)
-            TextButton(onPressed: _exit, child: const Text('Exit', style: TextStyle(color: Colors.white))),
-        ],
-        child: Column(children: [
-          if (idx != null) StepBar(index: idx),
-          Expanded(child: body),
-        ]),
+        actions: [if (step != Step.done) TextButton(onPressed: _exit, child: const Text('Exit'))],
+        child: Column(
+          children: [
+            if (idx != null) StepBar(index: idx),
+            Expanded(child: body),
+          ],
+        ),
       ),
     );
   }
@@ -244,51 +266,66 @@ class _OtpStepState extends State<OtpStep> {
     final sms = widget.info['codeChannel'] == 'sms';
     final dest = widget.info['codeDestination'];
     return Center(
-      child: Panel(children: [
-        const H1('Confirm it’s you'),
-        gap(),
-        if (widget.notice != null) ...[ErrorText(widget.notice!), gap()],
-        Body(sms
-            ? 'We’ll text a 6-digit code to your mobile number ending in $dest.'
-            : 'We’ll email a 6-digit code to $dest.'),
-        gap(24),
-        if (!_sent)
-          FilledButton(onPressed: _busy ? null : _send, child: Busy(busy: _busy, label: 'Send code'))
-        else ...[
-          TextField(
-            controller: _code,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            autofocus: true,
-            style: const TextStyle(fontSize: 28, letterSpacing: 8),
-            textAlign: TextAlign.center,
-            decoration: const InputDecoration(labelText: '6-digit code', counterText: ''),
-            onSubmitted: (_) => _verify(),
-          ),
+      child: Panel(
+        children: [
+          const H1('Confirm it’s you'),
           gap(),
-          FilledButton(onPressed: _busy ? null : _verify, child: Busy(busy: _busy, label: 'Verify')),
-          gap(12),
-          OutlinedButton(
-            onPressed: _busy || _wait > 0 ? null : _send,
-            child: Text(_wait > 0 ? 'New code in ${_wait}s' : 'Send a new code'),
+          if (widget.notice != null) ...[ErrorText(widget.notice!), gap()],
+          Body(
+            sms
+                ? 'We’ll text a 6-digit code to your mobile number ending in $dest.'
+                : 'We’ll email a 6-digit code to $dest.',
           ),
+          gap(24),
+          if (!_sent)
+            FilledButton(
+              onPressed: _busy ? null : _send,
+              child: Busy(busy: _busy, label: 'Send code'),
+            )
+          else ...[
+            Body(
+              sms
+                  ? 'We sent you a code by SMS. It is valid for 10 minutes.'
+                  : 'We emailed you a code. It is valid for 10 minutes. Check your spam folder if you can\u2019t see it.',
+            ),
+            gap(),
+            TextField(
+              controller: _code,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              autofocus: true,
+              style: const TextStyle(fontSize: 28, letterSpacing: 8),
+              textAlign: TextAlign.center,
+              decoration: const InputDecoration(labelText: '6-digit code', counterText: ''),
+              onSubmitted: (_) => _verify(),
+            ),
+            gap(),
+            FilledButton(
+              onPressed: _busy ? null : _verify,
+              child: Busy(busy: _busy, label: 'Verify'),
+            ),
+            gap(12),
+            OutlinedButton(
+              onPressed: _busy || _wait > 0 ? null : _send,
+              child: Text(_wait > 0 ? 'You can ask for a new code in ${_wait}s' : 'Send a new code'),
+            ),
+          ],
+          if (_err.isNotEmpty) ...[gap(), ErrorText(_err)],
         ],
-        if (_err.isNotEmpty) ...[gap(), ErrorText(_err)],
-      ]),
+      ),
     );
   }
 }
 
 class _Consent extends StatefulWidget {
-  const _Consent(this.business, this.onDone);
-  final String business;
+  const _Consent(this.onDone);
   final Future<void> Function() onDone;
   @override
   State<_Consent> createState() => _ConsentState();
 }
 
 class _ConsentState extends State<_Consent> {
-  bool _ok = false, _busy = false;
+  bool _busy = false;
   String _err = '';
 
   Future<void> _go() async {
@@ -307,23 +344,20 @@ class _ConsentState extends State<_Consent> {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Panel(children: [
-          const H1('Video confirmation'),
-          gap(),
-          Body(recordingNotice.replaceAll('{businessName}', widget.business)),
-          gap(),
-          CheckboxListTile(
-            value: _ok,
-            onChanged: (v) => setState(() => _ok = v ?? false),
-            title: const Text(recordingConsent, style: TextStyle(fontSize: 18)),
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: EdgeInsets.zero,
-          ),
-          gap(),
-          FilledButton(onPressed: _ok && !_busy ? _go : null, child: Busy(busy: _busy, label: 'Continue')),
-          if (_err.isNotEmpty) ...[gap(), ErrorText(_err)],
-        ]),
-      );
+    child: Panel(
+      children: [
+        const H1('Video confirmation'),
+        gap(),
+        const Body('Please record a short video to confirm your agreement.'),
+        gap(24),
+        FilledButton(
+          onPressed: _busy ? null : _go,
+          child: Busy(busy: _busy, label: 'Continue'),
+        ),
+        if (_err.isNotEmpty) ...[gap(), ErrorText(_err)],
+      ],
+    ),
+  );
 }
 
 class _Done extends StatefulWidget {
@@ -341,7 +375,10 @@ class _DoneState extends State<_Done> {
   void initState() {
     super.initState();
     // Reset for the next customer so nothing stays on screen.
-    _t = Timer(Duration(seconds: kiosk.value.doneSeconds), () => mounted ? Navigator.popUntil(context, (r) => r.isFirst) : null);
+    _t = Timer(
+      Duration(seconds: kiosk.value.doneSeconds),
+      () => mounted ? Navigator.popUntil(context, (r) => r.isFirst) : null,
+    );
   }
 
   @override
@@ -352,18 +389,28 @@ class _DoneState extends State<_Done> {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Panel(children: [
-          Icon(Icons.check_circle, size: 72, color: brand),
-          gap(),
-          const H1('All done, thank you!'),
-          gap(),
-          Body('You signed your agreement with ${widget.business}.'),
-          gap(8),
-          Body('Agreement ID: ${widget.result['agreementId']}', muted: true),
-          gap(8),
-          Body('${widget.business} will share a copy with you.', muted: true),
-          gap(24),
-          FilledButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text('Finish')),
-        ]),
-      );
+    child: Panel(
+      children: [
+        Icon(Icons.check_circle, size: 72, color: brand),
+        gap(),
+        const H1('All done, thank you!'),
+        gap(),
+        Body('You signed your agreement with ${widget.business} on ${_date(widget.result['signedAt'])}.'),
+        gap(8),
+        Body('Agreement ID: ${widget.result['agreementId']}', muted: true),
+        gap(8),
+        Body('${widget.business} will share a copy with you.', muted: true),
+        gap(24),
+        FilledButton(onPressed: () => Navigator.popUntil(context, (r) => r.isFirst), child: const Text('Finish')),
+      ],
+    ),
+  );
+}
+
+String _date(Object? iso) {
+  final d = DateTime.tryParse('$iso')?.toLocal();
+  if (d == null) return 'today';
+  const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+  return '${d.day} ${m[d.month - 1]} ${d.year}, $h:${d.minute.toString().padLeft(2, '0')} ${d.hour < 12 ? 'am' : 'pm'}';
 }

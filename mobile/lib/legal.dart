@@ -2,15 +2,6 @@
 // LEGAL_TEXT_VERSION, or completeSigning is rejected with LEGAL_TEXT_CHANGED.
 const legalTextVersion = '2026-11-09';
 
-const recordingNotice =
-    'We will record a short selfie video of you confirming this agreement. '
-    'It is stored securely and used only as proof of your consent. '
-    '{businessName} processes this video and your other personal data under the '
-    'Digital Personal Data Protection Act, 2023, keeps it only as long as needed for this purpose '
-    'or as required by law, and you can ask us to delete it at any time.';
-
-const recordingConsent = 'I agree to record a short confirmation video.';
-
 const agreementConsent = 'I have read and understood the agreement above, and I agree to its terms.';
 
 const declarations = [

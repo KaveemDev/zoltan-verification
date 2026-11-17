@@ -58,7 +58,7 @@ class _VideoStepState extends State<VideoStep> {
       setState(() {
         _phase = _Phase.intro;
         _err = denied
-            ? 'We need the camera and microphone. Please allow them in the tablet’s Settings, then try again.'
+            ? 'We need the camera and microphone. Please allow them in the device’s Settings, then try again.'
             : 'The camera could not be started. Close other apps that use it and try again.';
       });
     } catch (_) {
@@ -110,16 +110,30 @@ class _VideoStepState extends State<VideoStep> {
     });
     try {
       final bytes = await _file!.readAsBytes();
-      final p = await widget.authed(() async => await widget.api.call('/video/presign', post: true, auth: true, body: {
-            'mimeType': 'video/mp4',
-            'sizeBytes': bytes.length,
-            'durationSec': _duration,
-            'sha256': sha256.convert(bytes).toString(),
-          }) as Map<String, dynamic>);
-      final put = await http.put(Uri.parse(p['uploadUrl']),
-          headers: Map<String, String>.from(p['headers']), body: bytes);
+      final p = await widget.authed(
+        () async =>
+            await widget.api.call(
+                  '/video/presign',
+                  post: true,
+                  auth: true,
+                  body: {
+                    'mimeType': 'video/mp4',
+                    'sizeBytes': bytes.length,
+                    'durationSec': _duration,
+                    'sha256': sha256.convert(bytes).toString(),
+                  },
+                )
+                as Map<String, dynamic>,
+      );
+      final put = await http.put(
+        Uri.parse(p['uploadUrl']),
+        headers: Map<String, String>.from(p['headers']),
+        body: bytes,
+      );
       if (put.statusCode >= 300) throw Exception('upload ${put.statusCode}');
-      await widget.authed(() => widget.api.call('/video/confirm', post: true, auth: true, body: {'uploadId': p['uploadId']}));
+      await widget.authed(
+        () => widget.api.call('/video/confirm', post: true, auth: true, body: {'uploadId': p['uploadId']}),
+      );
       widget.onDone();
     } on ApiError catch (e) {
       if (mounted) {
@@ -142,51 +156,76 @@ class _VideoStepState extends State<VideoStep> {
   Widget build(BuildContext context) {
     final live = _phase == _Phase.ready || _phase == _Phase.countdown || _phase == _Phase.recording;
     return Center(
-      child: Panel(children: [
-        const H1('Quick confirmation video'),
-        gap(8),
-        if (_phase == _Phase.intro || _phase == _Phase.starting)
-          const Body('Look at the camera in a well-lit spot. When you tap Start, read the sentence on screen out loud.'),
-        if (live) ...[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: AspectRatio(aspectRatio: 4 / 3, child: Stack(fit: StackFit.expand, children: [
-              FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: _cam!.value.previewSize!.height,
-                  height: _cam!.value.previewSize!.width,
-                  child: CameraPreview(_cam!),
+      child: Panel(
+        children: [
+          const H1('Quick confirmation video'),
+          gap(8),
+          if (_phase == _Phase.intro || _phase == _Phase.starting)
+            const Body(
+              'Hold the device at eye level in a well-lit place. When you tap Start, read the sentence on screen out loud.',
+            ),
+          if (live) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: AspectRatio(
+                aspectRatio: 4 / 3,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: _cam!.value.previewSize!.height,
+                        height: _cam!.value.previewSize!.width,
+                        child: CameraPreview(_cam!),
+                      ),
+                    ),
+                    if (_phase == _Phase.countdown)
+                      Center(
+                        child: Text(
+                          '$_count',
+                          style: const TextStyle(fontSize: 96, color: Colors.white, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (_phase == _Phase.countdown)
-                Center(child: Text('$_count', style: const TextStyle(fontSize: 96, color: Colors.white, fontWeight: FontWeight.w800))),
-            ])),
-          ),
-          gap(),
-          const Body('Please say:', muted: true),
-          Text('“${widget.script}”', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: ink)),
-        ],
-        gap(20),
-        switch (_phase) {
-          _Phase.intro => FilledButton(onPressed: _enable, child: const Text('Turn on camera')),
-          _Phase.starting => const Center(child: CircularProgressIndicator()),
-          _Phase.ready => FilledButton(onPressed: _record, child: const Text('Start recording')),
-          _Phase.countdown => const SizedBox.shrink(),
-          _Phase.recording => FilledButton(
+            ),
+            gap(),
+            const Body('Please say:', muted: true),
+            Text(
+              '“${widget.script}”',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: ink),
+            ),
+          ],
+          gap(20),
+          switch (_phase) {
+            _Phase.intro => FilledButton(onPressed: _enable, child: const Text('Turn on camera')),
+            _Phase.starting => const Center(child: CircularProgressIndicator()),
+            _Phase.ready => FilledButton(onPressed: _record, child: const Text('Start recording')),
+            _Phase.countdown => const SizedBox.shrink(),
+            _Phase.recording => FilledButton(
               style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB3261E)),
               onPressed: _secs >= _minSec ? _stop : null,
               child: Text(_secs >= _minSec ? 'Stop  ($_secs s)' : 'Recording $_secs s – keep going…'),
             ),
-          _Phase.uploading => const Column(children: [CircularProgressIndicator(), SizedBox(height: 12), Body('Uploading…')]),
-          _Phase.failed => Column(children: [
-              FilledButton(onPressed: _upload, child: const Text('Try upload again')),
-              gap(12),
-              OutlinedButton(onPressed: () => setState(() => _phase = _Phase.ready), child: const Text('Record again')),
-            ]),
-        },
-        if (_err.isNotEmpty) ...[gap(), ErrorText(_err)],
-      ]),
+            _Phase.uploading => const Column(
+              children: [CircularProgressIndicator(), SizedBox(height: 12), Body('Uploading…')],
+            ),
+            _Phase.failed => Column(
+              children: [
+                FilledButton(onPressed: _upload, child: const Text('Try upload again')),
+                gap(12),
+                OutlinedButton(
+                  onPressed: () => setState(() => _phase = _Phase.ready),
+                  child: const Text('Record again'),
+                ),
+              ],
+            ),
+          },
+          if (_err.isNotEmpty) ...[gap(), ErrorText(_err)],
+        ],
+      ),
     );
   }
 }

@@ -45,7 +45,7 @@ ThemeData buildTheme() {
   );
 }
 
-/// Page frame: white header with the logo, content centred in a readable column (tablet first, fine on phones).
+/// Page frame: white header with the logo, content centred in a readable column (large screens first, fine on phones).
 class Shell extends StatelessWidget {
   const Shell({super.key, required this.child, this.title, this.actions = const [], this.leading, this.maxWidth = 760});
   final Widget child;

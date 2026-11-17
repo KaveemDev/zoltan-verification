@@ -6,7 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
-/// Builds the agreement PDF on the tablet from the server-filled HTML (the web app does the same in the browser).
+/// Builds the agreement PDF on the device from the server-filled HTML (the web app does the same in the browser).
 /// Handles the tags templates use: h1, h2, p, ol/ul/li, table, strong/b, em/i, br, div/span.
 /// shortcut: other tags are read as plain text; Latin fonts only, same as the web version.
 Future<Uint8List> buildAgreementPdf(String html, String footer) async {
