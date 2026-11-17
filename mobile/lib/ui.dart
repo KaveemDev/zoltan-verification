@@ -21,11 +21,27 @@ ThemeData buildTheme() {
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+      ),
     ),
-    filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(60), textStyle: btnText, shape: shape)),
-    outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(60), textStyle: btnText, shape: shape, foregroundColor: brand, side: BorderSide(color: brand))),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(60), textStyle: btnText, shape: shape),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(60),
+        textStyle: btnText,
+        shape: shape,
+        foregroundColor: brand,
+        side: BorderSide(color: brand),
+      ),
+    ),
   );
 }
 
@@ -40,33 +56,41 @@ class Shell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          foregroundColor: ink,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          shape: const Border(bottom: BorderSide(color: line)),
-          leading: leading,
-          automaticallyImplyLeading: false,
-          titleSpacing: leading == null ? 20 : 0,
-          title: Row(children: [
-            Image.asset('assets/logo.png', height: 34),
-            if (title != null) ...[
-              const SizedBox(width: 14),
-              Flexible(child: Text(title!, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black54))),
-            ],
-          ]),
-          actions: actions,
-        ),
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
-              child: child,
+    appBar: AppBar(
+      backgroundColor: Colors.white,
+      foregroundColor: ink,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      shape: const Border(bottom: BorderSide(color: line)),
+      leading: leading,
+      automaticallyImplyLeading: false,
+      titleSpacing: leading == null ? 20 : 0,
+      title: Row(
+        children: [
+          Image.asset('assets/logo.png', height: 34),
+          if (title != null) ...[
+            const SizedBox(width: 14),
+            Flexible(
+              child: Text(
+                title!,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black54),
+              ),
             ),
-          ),
+          ],
+        ],
+      ),
+      actions: actions,
+    ),
+    body: SafeArea(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: child,
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class Panel extends StatelessWidget {
@@ -84,7 +108,15 @@ class Panel extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 24, offset: Offset(0, 8))],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: children),
+      // Material: checkbox/switch tiles paint on the nearest Material, not on this white box.
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: children,
+        ),
+      ),
     );
     return scroll ? SingleChildScrollView(child: card) : card;
   }
@@ -96,8 +128,10 @@ class H1 extends StatelessWidget {
   const H1(this.text, {super.key});
   final String text;
   @override
-  Widget build(BuildContext context) =>
-      Text(text, style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w800, color: ink));
+  Widget build(BuildContext context) => Text(
+    text,
+    style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w800, color: ink),
+  );
 }
 
 class Body extends StatelessWidget {
@@ -105,8 +139,8 @@ class Body extends StatelessWidget {
   final String text;
   final bool muted;
   @override
-  Widget build(BuildContext context) => Text(text,
-      style: TextStyle(fontSize: 18, height: 1.45, color: muted ? Colors.black54 : Colors.black87));
+  Widget build(BuildContext context) =>
+      Text(text, style: TextStyle(fontSize: 18, height: 1.45, color: muted ? Colors.black54 : Colors.black87));
 }
 
 class ErrorText extends StatelessWidget {
@@ -114,10 +148,10 @@ class ErrorText extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: const Color(0xFFFDECEA), borderRadius: BorderRadius.circular(10)),
-        child: Text(text, style: const TextStyle(color: Color(0xFFB3261E), fontSize: 16)),
-      );
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: const Color(0xFFFDECEA), borderRadius: BorderRadius.circular(10)),
+    child: Text(text, style: const TextStyle(color: Color(0xFFB3261E), fontSize: 16)),
+  );
 }
 
 /// Shows a spinner inside the button while [busy].
@@ -137,29 +171,34 @@ class StepBar extends StatelessWidget {
   final int index;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-        child: Row(
-          children: [
-            for (var i = 0; i < labels.length; i++)
-              Expanded(
-                child: Column(children: [
-                  Container(
-                    height: 6,
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    decoration: BoxDecoration(
-                      color: i <= index ? brand : const Color(0xFFE2E8F0),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
+    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+    child: Row(
+      children: [
+        for (var i = 0; i < labels.length; i++)
+          Expanded(
+            child: Column(
+              children: [
+                Container(
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    color: i <= index ? brand : const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(3),
                   ),
-                  const SizedBox(height: 6),
-                  Text(labels[i],
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: i == index ? FontWeight.w700 : FontWeight.w400,
-                          color: i == index ? ink : Colors.black45)),
-                ]),
-              ),
-          ],
-        ),
-      );
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  labels[i],
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: i == index ? FontWeight.w700 : FontWeight.w400,
+                    color: i == index ? ink : Colors.black45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
 }

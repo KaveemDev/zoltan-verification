@@ -206,7 +206,7 @@ class _OtpStepState extends State<OtpStep> {
     });
     try {
       final r = await widget.api.call('/otp/send', post: true) as Map<String, dynamic>;
-      _resendAt = DateTime.parse(r['resendAvailableAt']);
+      _resendAt = DateTime.tryParse('${r['resendAvailableAt']}');
       _sent = true;
       _code.clear();
     } on ApiError catch (e) {
