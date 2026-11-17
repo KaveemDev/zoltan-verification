@@ -27,29 +27,57 @@ class AdminHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
-        length: isAdmin ? 4 : 3,
-        child: Scaffold(
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            foregroundColor: ink,
-            elevation: 0,
-            automaticallyImplyLeading: false,
-            title: Row(children: [
-              Image.asset('assets/logo.png', height: 32),
-              const SizedBox(width: 14),
-              Flexible(child: Text('${me['name']} \u00B7 ${me['role']}', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, color: Colors.black54))),
-            ]),
-            actions: [TextButton.icon(onPressed: () => _out(context), icon: const Icon(Icons.logout), label: const Text('Sign out'))],
-            bottom: TabBar(
-              labelColor: brand,
-              unselectedLabelColor: Colors.black54,
-              indicatorColor: brand,
-              tabs: [const Tab(text: 'Kiosk'), const Tab(text: 'Agreements'), if (isAdmin) const Tab(text: 'Templates'), const Tab(text: 'Settings')],
+    length: isAdmin ? 4 : 3,
+    child: Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: ink,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            Image.asset('assets/logo.png', height: 32),
+            const SizedBox(width: 14),
+            Flexible(
+              child: Text(
+                '${me['name']} \u00B7 ${me['role']}',
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 15, color: Colors.black54),
+              ),
             ),
-          ),
-          body: TabBarView(children: [KioskSetup(isAdmin: isAdmin), const AgreementsTab(), if (isAdmin) const TemplatesTab(), const SettingsTab()]),
+          ],
         ),
-      );
+        actions: [
+          TextButton.icon(
+            onPressed: () => _out(context),
+            icon: const Icon(Icons.logout),
+            label: const Text('Sign out'),
+          ),
+        ],
+        bottom: TabBar(
+          labelColor: brand,
+          unselectedLabelColor: Colors.black54,
+          indicatorColor: brand,
+          isScrollable: MediaQuery.sizeOf(context).width < 600,
+          tabAlignment: MediaQuery.sizeOf(context).width < 600 ? TabAlignment.start : null,
+          tabs: [
+            const Tab(text: 'Kiosk'),
+            const Tab(text: 'Agreements'),
+            if (isAdmin) const Tab(text: 'Templates'),
+            const Tab(text: 'Settings'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        children: [
+          KioskSetup(isAdmin: isAdmin),
+          const AgreementsTab(),
+          if (isAdmin) const TemplatesTab(),
+          const SettingsTab(),
+        ],
+      ),
+    ),
+  );
 }
 
 String _msg(Object e) => e is ApiError ? e.message : '$e';
@@ -70,56 +98,72 @@ class _AgreementsTabState extends State<AgreementsTab> {
     _reload();
   }
 
-  void _reload() => setState(() => _f = StaffApi.i
-      .call('GET', '/agreements?pageSize=50${_q.text.trim().isEmpty ? '' : '&q=${Uri.encodeQueryComponent(_q.text.trim())}'}')
-      .then((r) => (r as Map)['items'] as List));
+  // Block body: an arrow would make setState's callback return the Future, which Flutter rejects.
+  void _reload() => setState(() {
+    _f = StaffApi.i
+        .call(
+          'GET',
+          '/agreements?pageSize=50${_q.text.trim().isEmpty ? '' : '&q=${Uri.encodeQueryComponent(_q.text.trim())}'}',
+        )
+        .then((r) => (r as Map)['items'] as List);
+  });
 
   @override
-  Widget build(BuildContext context) => Column(children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: TextField(
-            controller: _q,
-            onSubmitted: (_) => _reload(),
-            decoration: InputDecoration(hintText: 'Search name or phone', prefixIcon: const Icon(Icons.search), suffixIcon: IconButton(icon: const Icon(Icons.refresh), onPressed: _reload)),
+  Widget build(BuildContext context) => Column(
+    children: [
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: TextField(
+          controller: _q,
+          onSubmitted: (_) => _reload(),
+          decoration: InputDecoration(
+            hintText: 'Search name or phone',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: IconButton(icon: const Icon(Icons.refresh), onPressed: _reload),
           ),
         ),
-        Expanded(
-          child: FutureBuilder<List>(
-            future: _f,
-            builder: (c, s) {
-              if (s.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-              if (s.hasError) return Center(child: Padding(padding: const EdgeInsets.all(24), child: ErrorText(_msg(s.error!))));
-              final items = s.data!;
-              if (items.isEmpty) return const Center(child: Body('No agreements found.', muted: true));
-              return ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                itemCount: items.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (_, i) {
-                  final a = items[i] as Map;
-                  return Card(
-                    margin: EdgeInsets.zero,
-                    child: ListTile(
-                      title: Text('${a['customerName']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text('${a['packageType']} · ${a['destination']} · ${a['customerPhone']}'),
-                      trailing: Chip(
-                        label: Text('${a['status']}', style: const TextStyle(color: Colors.white, fontSize: 12)),
-                        backgroundColor: _statusColor[a['status']] ?? Colors.grey,
-                        side: BorderSide.none,
-                      ),
-                      onTap: () async {
-                        await Navigator.push(c, MaterialPageRoute(builder: (_) => AgreementDetail(id: '${a['id']}')));
-                        _reload();
-                      },
-                    ),
-                  );
-                },
+      ),
+      Expanded(
+        child: FutureBuilder<List>(
+          future: _f,
+          builder: (c, s) {
+            if (s.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+            if (s.hasError) {
+              return Center(
+                child: Padding(padding: const EdgeInsets.all(24), child: ErrorText(_msg(s.error!))),
               );
-            },
-          ),
+            }
+            final items = s.data!;
+            if (items.isEmpty) return const Center(child: Body('No agreements found.', muted: true));
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (_, i) {
+                final a = items[i] as Map;
+                return Card(
+                  margin: EdgeInsets.zero,
+                  child: ListTile(
+                    title: Text('${a['customerName']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Text('${a['packageType']} · ${a['destination']} · ${a['customerPhone']}'),
+                    trailing: Chip(
+                      label: Text('${a['status']}', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                      backgroundColor: _statusColor[a['status']] ?? Colors.grey,
+                      side: BorderSide.none,
+                    ),
+                    onTap: () async {
+                      await Navigator.push(c, MaterialPageRoute(builder: (_) => AgreementDetail(id: '${a['id']}')));
+                      _reload();
+                    },
+                  ),
+                );
+              },
+            );
+          },
         ),
-      ]);
+      ),
+    ],
+  );
 }
 
 class AgreementDetail extends StatefulWidget {
@@ -149,7 +193,9 @@ class _AgreementDetailState extends State<AgreementDetail> {
       final r = await StaffApi.i.call(method, '/agreements/${widget.id}$path', body: body) as Map;
       _a = path == '/resend' ? r['agreement'] as Map : r;
       if (path == '/resend' && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r['sent'] == true ? 'Link sent.' : 'Could not send the link.')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(r['sent'] == true ? 'Link sent.' : 'Could not send the link.')));
       }
     } catch (e) {
       _err = _msg(e);
@@ -167,34 +213,51 @@ class _AgreementDetailState extends State<AgreementDetail> {
       leading: const BackButton(color: Colors.white),
       child: a == null
           ? Center(child: _err.isEmpty ? const CircularProgressIndicator() : ErrorText(_err))
-          : ListView(padding: const EdgeInsets.all(20), children: [
-              H1('${a['customerName']}'),
-              gap(8),
-              _row('Status', '${a['status']}'),
-              _row('Package', '${a['packageType']} · ${a['destination']}'),
-              _row('Price', '${a['currency']} ${a['price']}'),
-              _row('Phone', '${a['customerPhone']}'),
-              _row('Email', '${a['customerEmail'] ?? '-'}'),
-              _row('Signed', '${a['signedAt'] ?? '-'}'),
-              _row('Link expires', '${a['tokenExpiresAt'] ?? '-'}'),
-              if (_err.isNotEmpty) ...[gap(), ErrorText(_err)],
-              gap(20),
-              if (open) ...[
-                FilledButton(onPressed: _busy ? null : () => _act('POST', '/resend'), child: const Text('Resend signing link')),
-                gap(12),
-                OutlinedButton(onPressed: _busy ? null : () => _act('POST', '/extend', body: {'hours': 24}), child: const Text('Extend link by 24 hours')),
-                gap(12),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFB3261E)),
-                  onPressed: _busy ? null : () => _confirmCancel(),
-                  child: const Text('Cancel agreement'),
-                ),
+          : ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                H1('${a['customerName']}'),
+                gap(8),
+                _row('Status', '${a['status']}'),
+                _row('Package', '${a['packageType']} · ${a['destination']}'),
+                _row('Price', '${a['currency']} ${a['price']}'),
+                _row('Phone', '${a['customerPhone']}'),
+                _row('Email', '${a['customerEmail'] ?? '-'}'),
+                _row('Signed', '${a['signedAt'] ?? '-'}'),
+                _row('Link expires', '${a['tokenExpiresAt'] ?? '-'}'),
+                if (_err.isNotEmpty) ...[gap(), ErrorText(_err)],
                 gap(20),
+                if (open) ...[
+                  FilledButton(
+                    onPressed: _busy ? null : () => _act('POST', '/resend'),
+                    child: const Text('Resend signing link'),
+                  ),
+                  gap(12),
+                  OutlinedButton(
+                    onPressed: _busy ? null : () => _act('POST', '/extend', body: {'hours': 24}),
+                    child: const Text('Extend link by 24 hours'),
+                  ),
+                  gap(12),
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFB3261E)),
+                    onPressed: _busy ? null : () => _confirmCancel(),
+                    child: const Text('Cancel agreement'),
+                  ),
+                  gap(20),
+                ],
+                const Text(
+                  'Activity',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: ink),
+                ),
+                for (final e in (a['events'] as List? ?? []))
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('${(e as Map)['type']}'.replaceAll('_', ' ')),
+                    subtitle: Text('${e['createdAt']}'),
+                  ),
               ],
-              const Text('Activity', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: ink)),
-              for (final e in (a['events'] as List? ?? []))
-                ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text('${(e as Map)['type']}'.replaceAll('_', ' ')), subtitle: Text('${e['createdAt']}')),
-            ]),
+            ),
     );
   }
 
@@ -214,12 +277,18 @@ class _AgreementDetailState extends State<AgreementDetail> {
   }
 
   Widget _row(String k, String v) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 130, child: Text(k, style: const TextStyle(color: Colors.black54, fontSize: 16))),
-          Expanded(child: Text(v, style: const TextStyle(fontSize: 16))),
-        ]),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 130,
+          child: Text(k, style: const TextStyle(color: Colors.black54, fontSize: 16)),
+        ),
+        Expanded(child: Text(v, style: const TextStyle(fontSize: 16))),
+      ],
+    ),
+  );
 }
 
 class TemplatesTab extends StatefulWidget {
@@ -238,30 +307,38 @@ class _TemplatesTabState extends State<TemplatesTab> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_msg(e))));
     }
-    setState(() => _f = _load());
+    setState(() {
+      _f = _load();
+    });
   }
 
   @override
   Widget build(BuildContext context) => FutureBuilder<List>(
-        future: _f,
-        builder: (c, s) {
-          if (s.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-          if (s.hasError) return Center(child: ErrorText(_msg(s.error!)));
-          return ListView(padding: const EdgeInsets.all(16), children: [
-            const Body('Choose which agreement forms staff can use. New templates are created in the web dashboard.', muted: true),
-            gap(8),
-            for (final t in s.data!)
-              Card(
-                child: SwitchListTile(
-                  title: Text('${(t as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text('Version ${t['version']}'),
-                  value: t['active'] == true,
-                  onChanged: (v) => _toggle(t, v),
-                ),
+    future: _f,
+    builder: (c, s) {
+      if (s.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+      if (s.hasError) return Center(child: ErrorText(_msg(s.error!)));
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Body(
+            'Choose which agreement forms staff can use. New templates are created in the web dashboard.',
+            muted: true,
+          ),
+          gap(8),
+          for (final t in s.data!)
+            Card(
+              child: SwitchListTile(
+                title: Text('${(t as Map)['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text('Version ${t['version']}'),
+                value: t['active'] == true,
+                onChanged: (v) => _toggle(t, v),
               ),
-          ]);
-        },
+            ),
+        ],
       );
+    },
+  );
 }
 
 class SettingsTab extends StatefulWidget {
@@ -274,17 +351,28 @@ class _SettingsTabState extends State<SettingsTab> {
   final _url = TextEditingController(text: Config.baseUrl);
 
   @override
-  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(20), children: [
-        const H1('Tablet settings'),
-        gap(),
-        TextField(controller: _url, keyboardType: TextInputType.url, autocorrect: false, decoration: const InputDecoration(labelText: 'Server address', hintText: 'https://api.example.com')),
-        gap(),
-        FilledButton(
-          onPressed: () async {
-            await Config.setBaseUrl(_url.text);
-            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved. Sign in again to use the new server.')));
-          },
-          child: const Text('Save'),
-        ),
-      ]);
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(20),
+    children: [
+      const H1('Tablet settings'),
+      gap(),
+      TextField(
+        controller: _url,
+        keyboardType: TextInputType.url,
+        autocorrect: false,
+        decoration: const InputDecoration(labelText: 'Server address', hintText: 'https://api-sign.zoltanvisa.com'),
+      ),
+      gap(),
+      FilledButton(
+        onPressed: () async {
+          await Config.setBaseUrl(_url.text);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('Saved. Sign in again to use the new server.')));
+          }
+        },
+        child: const Text('Save'),
+      ),
+    ],
+  );
 }
