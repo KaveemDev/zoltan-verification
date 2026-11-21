@@ -40,7 +40,7 @@ class _KioskSetupState extends State<KioskSetup> {
       ..startLabel = _start.text.trim().isEmpty ? 'Get started' : _start.text.trim()
       ..phonePrefix = _prefix.text.trim()
       ..defaultDestination = _dest.text.trim()
-      ..currency = _cur.text.trim().toUpperCase()
+      ..currency = _cur.text.trim().isEmpty ? 'INR' : _cur.text.trim().toUpperCase() // server needs one; optional here
       ..videoScript = _script.text.trim()
       ..doneSeconds = (int.tryParse(_done.text) ?? 30).clamp(5, 600);
     for (final p in packageTitle.keys) {
@@ -254,7 +254,7 @@ class _KioskSetupState extends State<KioskSetup> {
                       ],
                     ),
                     gap(18),
-                    _field(_cur, 'Currency', hint: 'INR', help: '3-letter code, e.g. INR or USD.'),
+                    _field(_cur, 'Currency (optional)', hint: 'INR', help: 'Leave empty for INR. 3-letter code, e.g. USD.'),
                     for (final p in c.packages)
                       _field(
                         _price[p]!,

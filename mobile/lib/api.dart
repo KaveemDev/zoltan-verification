@@ -149,21 +149,29 @@ class DeviceApi {
 
   static bool get ready => token != null;
 
+  // The keystore/keychain can fail or come back empty after a restart (unsigned iOS builds, some Android
+  // devices), which silently logged the setup out. SharedPreferences is the fallback so the setup sticks.
   static Future<void> load() async {
     try {
       token = await _store.read(key: 'deviceToken');
-    } catch (_) {
-      token = null; // unreadable keystore: the admin sets the device up again
-    }
+    } catch (_) {}
+    token ??= (await SharedPreferences.getInstance()).getString('deviceToken');
   }
 
   static Future<void> save(String t) async {
-    await _store.write(key: 'deviceToken', value: t);
     token = t;
+    final p = await SharedPreferences.getInstance();
+    try {
+      await _store.write(key: 'deviceToken', value: t);
+      await p.remove('deviceToken');
+    } catch (_) {
+      await p.setString('deviceToken', t); // shortcut: token sits unencrypted, fine for a kiosk-scoped credential
+    }
   }
 
   static Future<void> clear() async {
     token = null;
+    await (await SharedPreferences.getInstance()).remove('deviceToken');
     try {
       await _store.delete(key: 'deviceToken');
     } catch (_) {}
